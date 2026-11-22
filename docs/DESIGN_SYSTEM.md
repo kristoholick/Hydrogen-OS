@@ -1,7 +1,27 @@
 # Design system
 
+## 🔒 LOCKED: the owner's three-screen home (do not change without the owner's explicit OK)
+The home screen is **three screens side by side**, each with its own UI and interface.
+The owner's brief, kept word for word:
+
+1. **Left — Full-Bleed Cinematic Console UI (PS5 / Media-First Style):** "Built like a high-end
+   machine rather than an office spreadsheet computer—full-screen atmospheric artwork,
+   whisper-quiet top status info, bold card rows, and zero cluttered file trees or tiny buttons."
+2. **Center (default home) — Detached-Chrome Spatial UI (visionOS Style):** "Instead of trapping
+   every app inside a heavy window frame with cramped toolbars and sidebars, navigation bars and
+   controls detach into clean, floating pills orbiting the main content with physical depth and lighting."
+3. **Right — Medieval history + Elden Ring / The Witcher 3 / RDR2 UI:** art and interface built
+   around medieval history and those games' look (owner's reference images), with original assets.
+
+Rules that follow from the lock:
+- All three screens always exist; none is merged, dropped, or restyled into another.
+- Each keeps its own layout paradigm, not just a colour theme.
+- Apps are written once and rendered by all three (see ARCHITECTURE.md §5), so every app works in every screen.
+- Boot and crash screens are not part of the home; they may use the Keep palette.
+- The Design Lab (`design-lab/`) is the reference for all three until Phase 6 builds them in the OS.
+
 ## The three realms
-Home is three side-by-side realms. Switch with `Q`/`E`, `←`/`→`, swipe, or LB/RB.
+Home is three side-by-side realms. Switch with `Q`/`E`, swipe, or LB/RB.
 
 ### Left — THEATRE (cinematic console)
 Full-bleed atmospheric artwork of the focused item, a whisper-quiet status line at the top,

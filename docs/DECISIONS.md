@@ -16,6 +16,7 @@
 | 12 | 2026-11-22 | `limine` crate 0.6.5 (base revision 6), Rust `nightly-2026-11-22` | Current versions; crate needs nightly |
 | 13 | 2026-11-22 | UEFI-only boot ISO (no legacy BIOS) | Target PCs are UEFI; simpler, fewer moving parts |
 | 14 | 2026-11-22 | `font8x8` bitmap font for early text | Placeholder until fontdue + real fonts in Phase 6 |
+| 15 | 2026-11-22 | 🔒 Three home screens locked: left PS5-style Theatre, center visionOS-style Aether, right medieval Keep | Owner's explicit requirement; changes need the owner's OK |
 
 ## Open questions for the owner
 - Final OS name

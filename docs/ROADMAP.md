@@ -41,7 +41,9 @@ VFS, FAT32 + RamFS/initrd, shell, basic libc-like runtime.
 
 ## Phase 6 — Compositor and the three realms
 Pre-baked backdrops, dirty rects, taffy/tiny-skia/fontdue, app model, Theatre/Aether/Keep, radial wheel.
-**Accept:** 60 FPS realm switching at 1080p in QEMU; same app renders in all three realms.
+**Accept:** 60 FPS realm switching at 1080p in QEMU; same app renders in all three realms; each
+screen matches the LOCKED spec in DESIGN_SYSTEM.md (left PS5-style Theatre, center visionOS-style
+Aether, right medieval Keep) — owner signs off on screenshots of all three.
 
 ## Phase 7 — Networking
 VirtIO-net → e1000, smoltcp, DHCP, DNS, sockets.

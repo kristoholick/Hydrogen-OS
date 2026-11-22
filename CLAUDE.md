@@ -8,6 +8,15 @@ It is NOT a Linux distribution and must never embed the Linux kernel.
 2. **Test safely and visibly.** Every build/run is logged; every result reported honestly (no invented passes).
 3. **Never harm the host PC.** See `docs/SAFETY.md` — those rules override everything else.
 
+## 🔒 Locked UI requirement: three home screens (owner's spec — never change without explicit OK)
+Full text in `docs/DESIGN_SYSTEM.md` ("LOCKED" section). Summary:
+- **Left — THEATRE:** Full-Bleed Cinematic Console UI (PS5 / media-first): full-screen artwork,
+  whisper-quiet top status, bold card rows, no file trees or tiny buttons.
+- **Center — AETHER (default):** Detached-Chrome Spatial UI (visionOS): floating pills orbit the
+  content instead of heavy window frames; physical depth and lighting.
+- **Right — THE KEEP:** medieval history + Elden Ring / Witcher 3 / RDR2 look, original art.
+All three always exist, each with its own interface. Any UI work must be checked against this list.
+
 ## Safety invariants (summary of docs/SAFETY.md)
 - The OS runs ONLY inside QEMU, against disk-image files inside this repo. No disk/USB/PCI passthrough.
 - Never run `dd`, `diskpart`, `bcdedit`, `mountvol`, `format`, firmware tools, or anything touching `\\.\PhysicalDrive*`, the EFI partition, or boot config.
