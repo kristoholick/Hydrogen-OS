@@ -28,4 +28,6 @@ It is NOT a Linux distribution and must never embed the Linux kernel.
 - Every `unsafe` block gets a `// SAFETY:` comment stating its preconditions.
 - Never mark hardware "supported" in `docs/HARDWARE_MATRIX.md` without a real test.
 - Art: original assets only. Game screenshots in the brief are mood references, never shipped.
-- Commit after each verified step.
+- Commit after each verified step, then push to `origin` (github.com/kristoholick/Hydrogen-OS) — owner's request.
+- Build/test from PowerShell: `.\tools\wsl.ps1 make test` (also `make test-panic`, `make run`, `make debug`).
+- Limine is pinned in the Makefile (tag + commit + SHA-256). Never bump it silently.

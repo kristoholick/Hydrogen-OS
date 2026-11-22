@@ -6,8 +6,8 @@ Nothing is marked above "Not started" until it has been tested.
 ## Virtual (QEMU)
 | Device | Status |
 |---|---|
-| UEFI GOP framebuffer | Not started |
-| COM1 serial | Not started |
+| UEFI GOP framebuffer | **Working** — 1280×800×32 via Limine, QEMU std VGA + OVMF (Phase 1, 2026-11-22) |
+| COM1 serial | **Working** — 16550 output, 38400 8N1 (Phase 1, 2026-11-22) |
 | PS/2 keyboard / mouse | Not started |
 | VirtIO blk / net / input / gpu | Not started |
 | AHCI / NVMe (emulated) | Not started |

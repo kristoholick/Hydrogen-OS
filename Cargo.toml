@@ -1,0 +1,10 @@
+[workspace]
+resolver = "3"
+members = ["kernel"]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+debug = true      # keep symbols for GDB and panic backtraces later

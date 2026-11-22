@@ -11,6 +11,11 @@
 | 7 | 2026-11-22 | Keep art = owner's references: medieval history + Elden Ring / Witcher 3 / RDR2 look | Owner's direction. Original assets only |
 | 8 | 2026-11-22 | Design Lab in the browser before OS UI code | Find the style in days, not months |
 | 9 | 2026-11-22 | Working codename "SIGIL" | Placeholder until the owner picks a name |
+| 10 | 2026-11-22 | Code lives at github.com/kristoholick/Hydrogen-OS; push after every commit | Owner's request |
+| 11 | 2026-11-22 | Limine **11.2.1** (commit `deba356b`), verified by commit + SHA-256 in the Makefile | Latest release; the spec's "12.x" does not exist yet |
+| 12 | 2026-11-22 | `limine` crate 0.6.5 (base revision 6), Rust `nightly-2026-11-22` | Current versions; crate needs nightly |
+| 13 | 2026-11-22 | UEFI-only boot ISO (no legacy BIOS) | Target PCs are UEFI; simpler, fewer moving parts |
+| 14 | 2026-11-22 | `font8x8` bitmap font for early text | Placeholder until fontdue + real fonts in Phase 6 |
 
 ## Open questions for the owner
 - Final OS name
