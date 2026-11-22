@@ -19,6 +19,8 @@ Rules that follow from the lock:
 - Apps are written once and rendered by all three (see ARCHITECTURE.md §5), so every app works in every screen.
 - Boot and crash screens are not part of the home; they may use the Keep palette.
 - The Design Lab (`design-lab/`) is the reference for all three until Phase 6 builds them in the OS.
+  Reference captures (1600×1000, original procedural art): `docs/screenshots/design-lab-0-theatre.png`,
+  `design-lab-1-aether.png`, `design-lab-2-keep.png`. Open a realm directly with `index.html?realm=0|1|2`.
 
 ## The three realms
 Home is three side-by-side realms. Switch with `Q`/`E`, swipe, or LB/RB.

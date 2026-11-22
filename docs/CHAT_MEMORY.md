@@ -102,6 +102,16 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
   heap growth takes frames from the PMM too.
 - Unix sockets can't live on `/mnt/c`; QEMU's monitor socket goes in WSL's `/tmp`.
 
+## 6b. Session 2 (2026-11-23) — second dev PC
+- The owner is now also working on a **Ryzen 5 5600G desktop** (repo at `C:\Claude code work\Hydrogen-OS`).
+  It is a build/QEMU machine only — not approved for real-hardware boots (that is still the Dell).
+- Installed its toolchain (owner: "install everything you need"); `tools/wsl.ps1` no longer hardcodes
+  the laptop path. Details in `docs/SAFETY.md`.
+- `make test-all` passes there with KVM on AMD. The very first boot after a WSL restart once stalled
+  inside OVMF before loading the DVD (kernel never started); not reproduced in 9 later runs.
+- Captured the Design Lab's three home screens into `docs/screenshots/design-lab-*.png`.
+- Lesson: from Git Bash, `/mnt/...` paths passed to `wsl` get rewritten — call `wsl` from PowerShell.
+
 ## 7. What's next
 
 1. **Phase 2.5 — first boot on the real laptop.** Owner writes the ISO to a USB stick (Rufus) and

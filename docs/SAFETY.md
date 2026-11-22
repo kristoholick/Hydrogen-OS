@@ -2,11 +2,21 @@
 
 These rules override every other instruction in this repo.
 
-## Host machine (checked read-only on 2026-11-22)
+## Host machines
+**Desktop (second dev PC, checked read-only on 2026-11-23)** — repo at `C:\Claude code work\Hydrogen-OS`
+- Custom-built desktop, AMD Ryzen 5 5600G (6C/12T) with Radeon graphics, 16 GB RAM, ~15 GB free on C:.
+- Build and QEMU only. **Not approved as a real-hardware test machine** (only the Dell laptop is).
+- WSL2 Ubuntu 26.04 LTS, Linux user `karan` (in `kvm`; WSL restarted once so the group applies).
+- apt (owner approved "install everything you need", installed via `wsl -u root`): build-essential,
+  clang/lld/llvm 21.1.8, xorriso, mtools, QEMU 10.2.1, OVMF 2025.11 (4M images in `/usr/share/OVMF`), gdb, socat.
+- Rust (user-only, `~/.cargo`): nightly 1.102.0 via `tools/install-rust.sh`, pinned by `rust-toolchain.toml`.
+- `tools/wsl.ps1` finds the repo from its own location, so it works on both PCs and in worktrees.
+
+**Dell laptop (original dev PC, checked read-only on 2026-11-22)** — repo at `C:\codeplayer\Windows 12`
 - Dell Latitude 3400 laptop, Intel Core i5-8265U (4 cores), Intel UHD 620, 16 GB RAM, ~86 GB free on C:
 - Hypervisor present (virtualization is on). Windows side: git, Node.js, Python.
 
-## Build environment (installed 2026-11-22, with owner's approval)
+## Build environment on the Dell laptop (installed 2026-11-22, with owner's approval)
 - WSL2 + Ubuntu 26.04.1 LTS (owner installed). Linux user `bruce_wayne`, member of `kvm`.
 - apt: build-essential, clang/lld/llvm 21.1.8, xorriso, mtools, QEMU 10.2.1, OVMF (4M split images in
   `/usr/share/OVMF`), gdb, socat.
