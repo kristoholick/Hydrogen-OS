@@ -1,0 +1,7 @@
+# Linux-side files must keep LF line endings
+*.sh       text eol=lf
+*.rs       text eol=lf
+*.toml     text eol=lf
+*.ld       text eol=lf
+*.conf     text eol=lf
+Makefile   text eol=lf
