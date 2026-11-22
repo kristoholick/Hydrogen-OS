@@ -8,7 +8,7 @@ Each phase ends with acceptance tests. The next phase starts only after they pas
 - [x] Design Lab (browser prototype of the three realms)
 - [ ] Owner picks visual direction in the Design Lab → frozen into DESIGN_SYSTEM.md tokens
 - [ ] Owner gives top-10 Windows features
-- [ ] Owner installs WSL2 (`wsl --install`), then approves toolchain install
+- [x] Owner installs WSL2 (`wsl --install`), then approves toolchain install
 
 ## Phase 1 — First boot
 Limine (pinned) + Rust kernel, COM1 serial, GOP framebuffer, panic handler, UEFI ISO, QEMU+OVMF,

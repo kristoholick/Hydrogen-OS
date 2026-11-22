@@ -19,7 +19,9 @@ It is NOT a Linux distribution and must never embed the Linux kernel.
 - Kernel: Rust `no_std` (+ minimal x86-64 asm), target `x86_64-unknown-none`, modular monolithic.
 - Boot: Limine (pinned version), UEFI. Emulator: QEMU + OVMF. Debug: serial log + GDB.
 - UI stack: taffy (layout), tiny-skia (vector), fontdue (fonts), QOI (images).
-- Host: WSL2 Ubuntu (not installed yet as of 2026-11-22).
+- Host: WSL2 Ubuntu 26.04 (toolchain installed 2026-11-22; details in docs/SAFETY.md).
+- Run Linux commands from Windows as: `wsl -d Ubuntu --cd "/mnt/c/codeplayer/Windows 12" -- bash -lc '...'`
+  (source `~/.cargo/env` first for Rust).
 
 ## Working rules
 - One milestone at a time; each has acceptance tests in `docs/ROADMAP.md`.

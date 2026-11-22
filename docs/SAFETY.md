@@ -4,8 +4,15 @@ These rules override every other instruction in this repo.
 
 ## Host machine (checked read-only on 2026-11-22)
 - Dell Latitude 3400 laptop, Intel Core i5-8265U (4 cores), Intel UHD 620, 16 GB RAM, ~86 GB free on C:
-- Hypervisor present (virtualization is on). WSL2 **not installed**.
-- Installed: git, Node.js, Python. Not installed: QEMU, Rust.
+- Hypervisor present (virtualization is on). Windows side: git, Node.js, Python.
+
+## Build environment (installed 2026-11-22, with owner's approval)
+- WSL2 + Ubuntu 26.04.1 LTS (owner installed). Linux user `bruce_wayne`, member of `kvm`.
+- apt: build-essential, clang/lld/llvm 21.1.8, xorriso, mtools, QEMU 10.2.1, OVMF (4M split images in
+  `/usr/share/OVMF`), gdb, socat.
+- Rust (user-only, `~/.cargo`): nightly 1.102.0 (2026-11-21), target `x86_64-unknown-none`, rust-src, llvm-tools.
+- `/dev/kvm` readable/writable → QEMU can use hardware acceleration.
+- Re-check any time with `tools/check-env.sh` (read-only).
 
 ## 1. Isolation
 - All OS code runs inside **QEMU** only. QEMU gets a disk *image file* in `build/`, never a real device.
