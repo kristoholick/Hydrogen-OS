@@ -25,6 +25,7 @@ medieval dark fantasy.
 | `docs/SAFETY.md` | How we protect the host PC; installed toolchain |
 | `docs/HARDWARE_MATRIX.md` | Tested hardware status (honest) |
 | `docs/DECISIONS.md` | Decision log |
+| `docs/CHAT_MEMORY.md` | Summary of the planning/build sessions: goals, rules, decisions, progress, next steps |
 | `design-lab/` | Browser prototype for finding the visual style |
 
 ## Build and run

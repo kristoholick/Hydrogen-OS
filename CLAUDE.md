@@ -3,6 +3,8 @@
 This repo is an independent, from-scratch operating system (working codename **SIGIL**, final name TBD).
 It is NOT a Linux distribution and must never embed the Linux kernel.
 
+**Resuming work? Read `docs/CHAT_MEMORY.md` first** — goals, decisions, progress and open questions.
+
 ## The owner's three hard rules
 1. **Discuss before implementing.** Propose each milestone and wait for a yes before writing its code.
 2. **Test safely and visibly.** Every build/run is logged; every result reported honestly (no invented passes).
