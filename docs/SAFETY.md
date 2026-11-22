@@ -31,7 +31,9 @@ EFI System Partition or `\\.\PhysicalDrive*`.
 - Writing a USB stick: owner does it with a GUI tool (e.g. Rufus/balenaEtcher), after
   double-checking the target drive letter.
 
-## 4. Real hardware (Phase 8+, much later)
+## 4. Real hardware (owner's Dell Latitude 3400 — approved as a test machine, 2026-11-22)
+- The owner allowed testing on this laptop. QEMU stays the main test loop; real boots are an
+  extra check, starting after Phase 2.
 - Boot only from a USB stick. The laptop's internal NVMe must not be written:
   storage drivers are compiled **read-only** for bare-metal builds (`feature = "bare-metal-ro"`).
 - Keep a Windows recovery USB available before the first bare-metal boot.

@@ -12,8 +12,14 @@ bench = false
 [features]
 # Deliberately panics right after boot to test the crash screen (Phase 1 acceptance test 3).
 panic-test = []
+# Deliberate CPU faults (Phase 2 acceptance tests).
+fault-pagefault = []
+fault-stack = []
+fault-int3 = []
 
 [dependencies]
+sigil-mm = { path = "../crates/sigil-mm" }
+x86_64 = { version = "0.15", default-features = false, features = ["instructions", "abi_x86_interrupt"] }
 limine = "0.6.5"
 spin = "0.12.3"
 font8x8 = { version = "0.3.1", default-features = false }

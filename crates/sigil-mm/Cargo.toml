@@ -1,0 +1,8 @@
+[package]
+name = "sigil-mm"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Architecture-independent memory-management algorithms for SIGIL (unit-tested on the host)."
+
+[dependencies]

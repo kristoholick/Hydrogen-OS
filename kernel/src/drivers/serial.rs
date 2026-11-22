@@ -1,8 +1,8 @@
 //! 16550 UART on COM1 — the kernel's first and most reliable log output.
 
 use crate::arch::x86_64::io::{inb, outb};
+use crate::sync::IrqMutex;
 use core::fmt;
-use spin::Mutex;
 
 const COM1: u16 = 0x3F8;
 
@@ -59,7 +59,7 @@ impl fmt::Write for SerialPort {
     }
 }
 
-pub static SERIAL: Mutex<SerialPort> = Mutex::new(SerialPort::new(COM1));
+pub static SERIAL: IrqMutex<SerialPort> = IrqMutex::new(SerialPort::new(COM1));
 
 pub fn init() {
     SERIAL.lock().init();

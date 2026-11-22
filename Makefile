@@ -5,9 +5,9 @@ SHELL := /bin/bash
 
 BUILD        := build
 KERNEL_ELF   := target/x86_64-unknown-none/release/sigil-kernel
-PANIC_ELF    := target/panic/x86_64-unknown-none/release/sigil-kernel
 ISO          := $(BUILD)/sigil.iso
-PANIC_ISO    := $(BUILD)/sigil-panic.iso
+# Test variants: each is the normal kernel plus one Cargo feature, built in its own target dir.
+VARIANTS     := panic-test fault-pagefault fault-stack fault-int3
 
 # --- Limine, pinned (official repo: codeberg.org/Limine/Limine) ---
 LIMINE_TAG    := v11.2.1-binary
@@ -24,7 +24,8 @@ QEMU_BASE  = qemu-system-x86_64 $(ACCEL) -M q35 -m 512M -no-reboot \
              -drive if=pflash,unit=0,format=raw,file=$(OVMF_CODE),readonly=on \
              -drive if=pflash,unit=1,format=raw,file=$(BUILD)/ovmf-vars.fd
 
-.PHONY: all kernel kernel-panic iso iso-panic run debug test test-panic test-all limine clean distclean
+.PHONY: all kernel iso run debug unit test test-panic test-fault-pagefault test-fault-stack \
+        test-fault-int3 test-all limine clean distclean FORCE
 
 all: iso
 
@@ -43,9 +44,6 @@ $(LIMINE_DIR)/.verified:
 kernel:
 	cargo build --release -p sigil-kernel
 
-kernel-panic:
-	cargo build --release -p sigil-kernel --features panic-test --target-dir target/panic
-
 # ---------- ISO (UEFI boot only) ----------
 # $(1) kernel ELF, $(2) output ISO, $(3) staging dir
 define make_iso
@@ -63,8 +61,13 @@ endef
 iso: limine kernel
 	$(call make_iso,$(KERNEL_ELF),$(ISO),$(BUILD)/iso_root)
 
-iso-panic: limine kernel-panic
-	$(call make_iso,$(PANIC_ELF),$(PANIC_ISO),$(BUILD)/iso_root_panic)
+# build/sigil-<variant>.iso, e.g. build/sigil-fault-stack.iso
+$(BUILD)/sigil-%.iso: limine FORCE
+	cargo build --release -p sigil-kernel --features $* --target-dir target/variants/$*
+	$(call make_iso,target/variants/$*/x86_64-unknown-none/release/sigil-kernel,$@,$(BUILD)/iso_root_$*)
+
+FORCE:
+.PRECIOUS: $(BUILD)/sigil-%.iso
 
 $(BUILD)/ovmf-vars.fd:
 	@cp $(OVMF_VARS) $@
@@ -79,13 +82,28 @@ debug: iso $(BUILD)/ovmf-vars.fd
 	$(QEMU_BASE) -cdrom $(ISO) -serial stdio -s -S
 
 # ---------- automated tests (headless, time-limited) ----------
+unit:
+	cargo test -p sigil-mm --target x86_64-unknown-linux-gnu
+
 test: iso
-	@bash tools/test-boot.sh $(ISO) $(BUILD)/test "phase 1 boot complete"
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test \
+		"SIGIL kernel online" "IDT loaded" "paging: own page tables active" "now on kernel stack" \
+		"selftest pmm: ok" "selftest paging: ok" "selftest heap: ok" "timer ok" "phase 2 boot complete"
 
-test-panic: iso-panic
-	@bash tools/test-boot.sh $(PANIC_ISO) $(BUILD)/test-panic "PANIC at kernel/src/main.rs"
+test-panic: $(BUILD)/sigil-panic-test.iso
+	@bash tools/test-boot.sh $< $(BUILD)/test-panic "PANIC at kernel/src/main.rs"
 
-test-all: test test-panic
+test-fault-pagefault: $(BUILD)/sigil-fault-pagefault.iso
+	@bash tools/test-boot.sh $< $(BUILD)/test-fault-pagefault "EXCEPTION: PAGE FAULT at 0xdeadb000"
+
+test-fault-stack: $(BUILD)/sigil-fault-stack.iso
+	@bash tools/test-boot.sh $< $(BUILD)/test-fault-stack "EXCEPTION: DOUBLE FAULT" "kernel stack overflow"
+
+test-fault-int3: $(BUILD)/sigil-fault-int3.iso
+	@bash tools/test-boot.sh $< $(BUILD)/test-fault-int3 "BREAKPOINT at rip=" "resumed after breakpoint" "phase 2 boot complete"
+
+test-all: unit test test-panic test-fault-pagefault test-fault-stack test-fault-int3
+	@echo "[make] ALL TESTS PASSED"
 
 clean:
 	rm -rf $(BUILD)/iso_root* $(BUILD)/*.iso $(BUILD)/test* $(BUILD)/ovmf-vars.fd $(BUILD)/xorriso.log

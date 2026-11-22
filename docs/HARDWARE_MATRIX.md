@@ -8,6 +8,10 @@ Nothing is marked above "Not started" until it has been tested.
 |---|---|
 | UEFI GOP framebuffer | **Working** — 1280×800×32 via Limine, QEMU std VGA + OVMF (Phase 1, 2026-11-22) |
 | COM1 serial | **Working** — 16550 output, 38400 8N1 (Phase 1, 2026-11-22) |
+| Local APIC + timer | **Working** — xAPIC mode, periodic 100 Hz, PIT-calibrated, RTC-verified (Phase 2) |
+| 8259 PIC | **Working** — remapped and masked (Phase 2) |
+| PIT channel 2 | **Working** — one-shot calibration only (Phase 2) |
+| CMOS RTC | **Working** — seconds register read (Phase 2) |
 | PS/2 keyboard / mouse | Not started |
 | VirtIO blk / net / input / gpu | Not started |
 | AHCI / NVMe (emulated) | Not started |

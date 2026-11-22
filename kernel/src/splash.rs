@@ -47,7 +47,8 @@ pub struct BootFacts<'a> {
     pub bootloader: &'a str,
     pub display: &'a str,
     pub memory: &'a str,
-    pub protocol: &'a str,
+    pub protection: &'a str,
+    pub timer: &'a str,
 }
 
 pub fn boot_screen(fb: &mut Framebuffer, facts: &BootFacts) {
@@ -67,11 +68,12 @@ pub fn boot_screen(fb: &mut Framebuffer, facts: &BootFacts) {
         ("bootloader", facts.bootloader),
         ("display", facts.display),
         ("memory", facts.memory),
-        ("protocol", facts.protocol),
+        ("protection", facts.protection),
+        ("timer", facts.timer),
     ];
     let line_h = 30;
-    let label_w = Framebuffer::text_width("bootloader  ", 2);
-    let block_w = label_w + Framebuffer::text_width("1280 x 800, 32 bpp   ", 2);
+    let label_w = Framebuffer::text_width("protection  ", 2);
+    let block_w = label_w + Framebuffer::text_width("466 MiB free of 512 MiB", 2);
     let x0 = w.saturating_sub(block_w) / 2;
     let mut y = sub_y + 80;
     for (label, value) in rows {
@@ -80,7 +82,7 @@ pub fn boot_screen(fb: &mut Framebuffer, facts: &BootFacts) {
         y += line_h;
     }
 
-    fb.draw_text_centered(h - m - 46, "phase 1 - first boot - halted safely", 2, ASH);
+    fb.draw_text_centered(h - m - 46, "phase 2 - kernel foundations - idle", 2, ASH);
 }
 
 pub fn panic_screen(fb: &mut Framebuffer, location: &str, message: &str) {

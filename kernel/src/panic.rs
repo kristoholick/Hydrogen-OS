@@ -1,6 +1,7 @@
 //! Kernel panic handler: log to serial, paint the crimson screen, halt the core.
 
-use crate::arch::x86_64::cpu::{disable_interrupts, halt_forever};
+use crate::arch::x86_64::cpu::halt_forever;
+use x86_64::instructions::interrupts::disable as disable_interrupts;
 use crate::drivers::{framebuffer::FB, serial::print_unlocked};
 use crate::{fmtbuf, splash};
 use core::panic::PanicInfo;

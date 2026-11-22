@@ -4,11 +4,12 @@ An independent operating system built from scratch: its own kernel, drivers, fil
 compositor and a three-realm desktop inspired by cinematic consoles, spatial computing and
 medieval dark fantasy.
 
-> Status: **Phase 1 complete — the kernel boots in QEMU.** Next: Phase 2 (kernel foundations).
+> Status: **Phase 2 complete — kernel foundations.** Own page tables, memory manager, heap, interrupts,
+> timer; CPU faults are caught and reported. Next: first boot on real hardware, then Phase 3 (multitasking).
 
-| Boot screen | Crash screen |
+| Boot screen | Stack overflow caught |
 |---|---|
-| ![boot](docs/screenshots/phase1-boot.png) | ![panic](docs/screenshots/phase1-panic.png) |
+| ![boot](docs/screenshots/phase2-boot.png) | ![stack](docs/screenshots/phase2-stack-overflow.png) |
 
 ## Repo map
 | Path | What it is |
@@ -36,8 +37,11 @@ From PowerShell in the repo folder:
 
 | Command | What it does |
 |---|---|
+| `make test-all` | Everything below, stops at the first failure |
+| `make unit` | Host unit tests for the memory algorithms (`crates/sigil-mm`) |
 | `make test` | Boot headless for up to 20 s, save `build/test/serial.log` + `frame.png`, pass/fail |
 | `make test-panic` | Same with a deliberate panic, checks the crash screen |
+| `make test-fault-pagefault` / `-stack` / `-int3` | Deliberate CPU faults: must be caught, never reset |
 | `make run` | Boot in a QEMU window (serial log in the terminal) |
 | `make debug` | Boot paused with a GDB server on port 1234 |
 | `make clean` | Remove build outputs |

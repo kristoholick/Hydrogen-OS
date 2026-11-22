@@ -2,7 +2,9 @@
 //! `.limine_requests` section (see linker-x86_64.ld) and fills in the responses before
 //! jumping to `kmain`.
 
-use limine::request::{BootloaderInfoRequest, FramebufferRequest, HhdmRequest, MemmapRequest};
+use limine::request::{
+    BootloaderInfoRequest, ExecutableAddressRequest, FramebufferRequest, HhdmRequest, MemmapRequest,
+};
 use limine::{BaseRevision, RequestsEndMarker, RequestsStartMarker};
 
 #[used]
@@ -29,6 +31,11 @@ pub static MEMMAP: MemmapRequest = MemmapRequest::new();
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static HHDM: HhdmRequest = HhdmRequest::new();
+
+/// Where Limine put the kernel image (physical and virtual), needed to build page tables.
+#[used]
+#[unsafe(link_section = ".limine_requests")]
+pub static EXECUTABLE_ADDRESS: ExecutableAddressRequest = ExecutableAddressRequest::new();
 
 #[used]
 #[unsafe(link_section = ".limine_requests_end")]

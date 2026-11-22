@@ -22,10 +22,26 @@ Results (QEMU 10.2.1 + KVM, OVMF, Limine 11.2.1):
 - [x] `make test-panic` PASS — `PANIC at kernel/src/main.rs:100:5` on serial + crimson screen — `docs/screenshots/phase1-panic.png`
 - [x] Only `build/` and `target/` written (checked with `git status`); temp QEMU socket removed
 
-## Phase 2 — Kernel foundations  ← next
-
-GDT/TSS, IDT + exception handlers, APIC + timer, physical allocator, paging, heap.
+## Phase 2 — Kernel foundations  ✅ done 2026-11-22
+GDT/TSS (3 emergency stacks), IDT (all 32 exceptions), legacy PIC masked, Local APIC (xAPIC + x2APIC)
+timer calibrated against the PIT, bitmap PMM, own 4-level page tables (2 MiB direct map, per-section
+kernel permissions, NX + WP), 64 KiB kernel stack with guard page, size-class kernel heap.
+CPU table formats via the `x86_64` crate 0.15.5 (decision #16); all policy code is ours.
 **Accept:** page fault caught and reported; `Vec`/`Box` work; timer ticks logged; unit tests for allocators.
+
+Results (`make test-all`, QEMU 10.2.1 + KVM):
+- [x] `make unit` — 13/13 `sigil-mm` host tests pass (bitmap + heap)
+- [x] `make test` — all boot stages logged; self-checks pmm/paging/heap ok; timer: **100 ticks per RTC second**
+- [x] `make test-fault-pagefault` — `PAGE FAULT at 0xdeadb000 (CAUSED_BY_WRITE)` + crimson screen
+- [x] `make test-fault-stack` — `DOUBLE FAULT … kernel stack overflow caught on emergency stack`, no reset
+- [x] `make test-fault-int3` — breakpoint handled, kernel resumed to `phase 2 boot complete`
+- [x] `make test-panic` — Phase 1 crash test still passes
+- [x] Every run checked for triple-fault resets (none); only `build/` and `target/` written
+- Screenshots: `docs/screenshots/phase2-boot.png`, `phase2-page-fault.png`, `phase2-stack-overflow.png`
+
+## Phase 2.5 — First boot on real hardware (owner's Dell Latitude 3400)  ← next
+Owner writes the ISO to a USB stick (Rufus) and disables Secure Boot. No disk drivers exist yet, so the
+internal SSD cannot be touched. Check: boots, screen draws, timer check passes on real hardware.
 
 ## Phase 3 — Multitasking
 Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF loader.

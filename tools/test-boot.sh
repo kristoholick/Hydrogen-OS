@@ -4,12 +4,15 @@
 # or the time limit hits), takes a screenshot, stops QEMU and checks the serial log.
 # Safety: QEMU only gets the ISO file and a copy of the UEFI vars; output goes to $OUT only.
 #
-# usage: tools/test-boot.sh <iso> <out-dir> <expected serial text>
+# usage: tools/test-boot.sh <iso> <out-dir> <expected text> [more expected text ...]
+# Passes only if EVERY expected text appears in the serial log and the CPU never reset
+# after power-on (a second reset would mean a triple fault).
 set -uo pipefail
 
 ISO=$1
 OUT=$2
-EXPECT=$3
+shift 2
+EXPECTS=("$@")
 LIMIT=${TIMEOUT:-20}
 
 ACCEL="-accel tcg -cpu max"
@@ -51,14 +54,34 @@ rm -f "$SOCK"
 
 echo "[test] stop reason: $status"
 echo "----- serial.log -----"
-tr -d '\r' < "$OUT/serial.log" 2>/dev/null || echo "(no serial output)"
+tr -d '\r' < "$OUT/serial.log" 2>/dev/null | grep -v '^\x1b' || echo "(no serial output)"
 echo "----------------------"
-[ -s "$OUT/qemu.log" ] && { echo "----- qemu.log (resets / guest errors) -----"; head -20 "$OUT/qemu.log"; }
 
-if grep -q "$EXPECT" "$OUT/serial.log" 2>/dev/null; then
-  echo "[test] PASS: found \"$EXPECT\"  (screenshot: $OUT/frame.png)"
-  exit 0
-else
-  echo "[test] FAIL: \"$EXPECT\" not found in serial log"
-  exit 1
+fail=0
+# QEMU logs the CPU state at every reset. Start-up resets show the power-on state
+# (EIP=0000fff0, paging off). A reset caused by our code (triple fault) would show a running
+# 64-bit CPU ("RIP=...") or some other instruction pointer.
+bad_resets=$(grep -E '^(RIP|EIP)=' "$OUT/qemu.log" 2>/dev/null | grep -vc '^EIP=0000fff0' || true)
+if [ "${bad_resets:-0}" -gt 0 ]; then
+  echo "[test] FAIL: $bad_resets CPU reset(s) after code started running (triple fault)"
+  fail=1
 fi
+if [ "$status" = "qemu-exited" ]; then
+  echo "[test] FAIL: QEMU exited by itself (machine reset/shut down unexpectedly)"
+  fail=1
+fi
+for e in "${EXPECTS[@]}"; do
+  if grep -qF -- "$e" "$OUT/serial.log" 2>/dev/null; then
+    echo "[test] ok:   \"$e\""
+  else
+    echo "[test] FAIL: \"$e\" not found in serial log"
+    fail=1
+  fi
+done
+
+if [ $fail -eq 0 ]; then
+  echo "[test] PASS  (screenshot: $OUT/frame.png)"
+else
+  echo "[test] FAILED"
+fi
+exit $fail

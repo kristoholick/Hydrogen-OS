@@ -17,6 +17,9 @@
 | 13 | 2026-11-22 | UEFI-only boot ISO (no legacy BIOS) | Target PCs are UEFI; simpler, fewer moving parts |
 | 14 | 2026-11-22 | `font8x8` bitmap font for early text | Placeholder until fontdue + real fonts in Phase 6 |
 | 15 | 2026-11-22 | 🔒 Three home screens locked: left PS5-style Theatre, center visionOS-style Aether, right medieval Keep | Owner's explicit requirement; changes need the owner's OK |
+| 16 | 2026-11-22 | Option A: `x86_64` crate 0.15.5 for CPU table formats only (GDT/IDT/TSS/page-table entries, registers) | Fewer silent-reset bugs, faster progress; contained in `arch/x86_64/`, replaceable later. All policy code is ours |
+| 17 | 2026-11-22 | Memory algorithms in a separate `sigil-mm` crate | Unit-testable on the host |
+| 18 | 2026-11-22 | Owner's laptop may be used as a real-hardware test machine | Owner's permission. Still never: firmware flashing, writing the internal SSD |
 
 ## Open questions for the owner
 - Final OS name

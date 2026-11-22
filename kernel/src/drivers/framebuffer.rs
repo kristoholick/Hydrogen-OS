@@ -1,8 +1,8 @@
 //! Linear framebuffer handed over by the bootloader (UEFI GOP), plus tiny 2D helpers.
 //! Phase 6 replaces the drawing code with the real compositor.
 
+use crate::sync::IrqMutex;
 use font8x8::legacy::BASIC_LEGACY;
-use spin::Mutex;
 
 #[derive(Clone, Copy)]
 pub struct Rgb(pub u8, pub u8, pub u8);
@@ -29,7 +29,7 @@ pub struct Framebuffer {
 // all access goes through the `FB` mutex.
 unsafe impl Send for Framebuffer {}
 
-pub static FB: Mutex<Option<Framebuffer>> = Mutex::new(None);
+pub static FB: IrqMutex<Option<Framebuffer>> = IrqMutex::new(None);
 
 impl Framebuffer {
     /// # Safety
