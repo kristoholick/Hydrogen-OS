@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIGIL — Design Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+SC:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=IM+Fell+English+SC&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="panel-ink sel-crimson">
+
+<!-- shared SVG filters -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="inkEdge" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="3" seed="11" result="t"/>
+    <feDisplacementMap in="SourceGraphic" in2="t" scale="16"/>
+  </filter>
+  <filter id="inkRing" x="-10%" y="-10%" width="120%" height="120%">
+    <feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="3" seed="5"/>
+    <feDisplacementMap in="SourceGraphic" scale="12"/>
+  </filter>
+</svg>
+
+<!-- realm switcher (global) -->
+<nav id="realmNav">
+  <kbd>Q</kbd>
+  <button data-realm="0">Theatre</button>
+  <span class="dot">◆</span>
+  <button data-realm="1">Aether</button>
+  <span class="dot">◆</span>
+  <button data-realm="2">The Keep</button>
+  <kbd>E</kbd>
+</nav>
+
+<main id="track">
+
+  <!-- ================= LEFT: THEATRE ================= -->
+  <section class="realm" id="theatre">
+    <div class="th-bg"><div class="th-art a"></div><div class="th-art b"></div></div>
+    <div class="th-shade"></div>
+
+    <header class="th-status">
+      <span class="th-user"><i class="avatar"></i>Wayfarer</span>
+      <span class="th-right">
+        <svg viewBox="0 0 24 24" class="ic"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1"/></svg>
+        <svg viewBox="0 0 24 24" class="ic"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2"/><rect x="4" y="9" width="11" height="6" fill="currentColor" stroke="none"/></svg>
+        <span class="clock" data-clock></span>
+      </span>
+    </header>
+
+    <div class="th-hero">
+      <div class="th-kicker" id="thKicker">Recently opened</div>
+      <h1 id="thTitle">The Archive</h1>
+      <p id="thDesc">Every file you own, laid out as a land to explore.</p>
+      <div class="th-actions">
+        <button class="th-btn primary">Open</button>
+        <button class="th-btn round">⋯</button>
+      </div>
+    </div>
+
+    <div class="th-rowlabel">Your hall</div>
+    <div class="th-row" id="thRow"></div>
+
+    <footer class="prompts">
+      <span><kbd>←</kbd><kbd>→</kbd> Browse</span>
+      <span><kbd>Enter</kbd> Open</span>
+      <span><kbd>Q</kbd><kbd>E</kbd> Realms</span>
+      <span><kbd>T</kbd> Style</span>
+    </footer>
+  </section>
+
+  <!-- ================= CENTER: AETHER ================= -->
+  <section class="realm" id="aether">
+    <div class="ae-bg"></div>
+    <div class="ae-stage" id="aeStage">
+
+      <!-- back window -->
+      <div class="glass ae-win back">
+        <div class="ae-mini-title">Weather · The Vale</div>
+        <div class="ae-temp">11°</div>
+        <div class="ae-small">Light fog, clearing by dusk</div>
+        <div class="ae-forecast"><span>Mon<b>12°</b></span><span>Tue<b>9°</b></span><span>Wed<b>14°</b></span><span>Thu<b>13°</b></span></div>
+      </div>
+
+      <!-- main window -->
+      <div class="ae-win-wrap">
+        <div class="pill ae-ornament"><span class="ae-dot"></span>Library</div>
+
+        <div class="pill ae-rail" id="aeRail">
+          <button class="on" title="Home"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg></button>
+          <button title="Music"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+          <button title="Pictures"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg></button>
+          <button title="Files"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg></button>
+          <button title="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
+        </div>
+
+        <div class="glass ae-win main">
+          <div class="ae-side">
+            <div class="ae-h">Library</div>
+            <a class="on">Recently added</a><a>Songs</a><a>Albums</a><a>Made for you</a>
+            <div class="ae-h sub">Playlists</div>
+            <a>Long roads</a><a>Candle hours</a><a>Rain on stone</a>
+          </div>
+          <div class="ae-content">
+            <div class="ae-head"><div><h2>Recently added</h2><span>24 albums</span></div>
+              <div class="pill tiny"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Search</div></div>
+            <div class="ae-grid" id="aeGrid"></div>
+          </div>
+        </div>
+
+        <div class="pill ae-player">
+          <div class="ae-cover" id="aeCover"></div>
+          <div class="ae-track"><b>Embers of the Vale</b><span>The Lantern Choir</span></div>
+          <button><svg viewBox="0 0 24 24"><path d="M19 20 9 12l10-8zM5 19V5"/></svg></button>
+          <button class="play"><svg viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg></button>
+          <button><svg viewBox="0 0 24 24"><path d="m5 4 10 8-10 8zM19 5v14"/></svg></button>
+          <div class="ae-progress"><i></i></div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="prompts light">
+      <span>Move the mouse to feel the depth</span>
+      <span><kbd>Q</kbd><kbd>E</kbd> Realms</span>
+      <span><kbd>T</kbd> Style</span>
+    </footer>
+  </section>
+
+  <!-- ================= RIGHT: THE KEEP ================= -->
+  <section class="realm" id="keep">
+    <div class="kp-bg"></div>
+    <div class="kp-vignette"></div>
+
+    <header class="kp-top">
+      <div class="kp-brand">
+        <span class="kp-sigil" id="kpBrand"></span>
+        <div><div class="kp-title">The Keep</div><div class="kp-sub">Night of the 22nd · Frostmoon</div></div>
+      </div>
+      <div class="kp-tabs" id="kpTabs">
+        <kbd>Z</kbd>
+        <button data-tab="satchel" class="on">Satchel</button>
+        <button data-tab="archive">Archive</button>
+        <button data-tab="codex">Codex</button>
+        <kbd>C</kbd>
+      </div>
+      <div class="kp-status"><span class="clock" data-clock></span></div>
+    </header>
+
+    <!-- Satchel: apps as an inventory -->
+    <div class="kp-view on" data-view="satchel">
+      <div class="kp-panel ink satchel">
+        <div class="kp-panel-inner">
+          <div class="kp-ph">Satchel</div>
+          <div class="kp-cats" id="kpCats"></div>
+          <div class="rule"></div>
+          <div class="kp-grid" id="kpGrid"></div>
+          <div class="rule"></div>
+          <div class="kp-item-name" id="kpName"></div>
+          <div class="kp-item-desc" id="kpDesc"></div>
+          <div class="rule"></div>
+          <div class="kp-carry">Carrying <span id="kpCount"></span></div>
+        </div>
+      </div>
+
+      <div class="kp-panel frame inspect">
+        <i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i>
+        <div class="kp-ph small">Inspect</div>
+        <div class="kp-bigsigil" id="kpBig"></div>
+        <div class="diamond-rule"><span></span></div>
+        <dl class="kp-attrs" id="kpAttrs"></dl>
+      </div>
+    </div>
+
+    <!-- Archive: files as a world map -->
+    <div class="kp-view" data-view="archive">
+      <div class="kp-panel frame mapframe">
+        <i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i>
+        <div class="map-wrap" id="mapWrap"></div>
+      </div>
+      <div class="kp-panel ink ledger">
+        <div class="kp-panel-inner">
+          <div class="kp-ph">Ledger</div>
+          <div class="rule"></div>
+          <ul class="ledger-list" id="ledger"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Codex: settings as a skill tree -->
+    <div class="kp-view" data-view="codex">
+      <div class="codex-wrap"><svg id="codexTree" viewBox="0 0 1000 640"></svg></div>
+      <div class="kp-panel frame codex-info" id="codexInfo">
+        <i class="cn tl"></i><i class="cn tr"></i><i class="cn bl"></i><i class="cn br"></i>
+        <div class="kp-ph small" id="ciTitle">Codex</div>
+        <div class="ci-desc" id="ciDesc">Hover a sigil to read its lore. Every branch is a part of your system.</div>
+        <div class="ci-opts" id="ciOpts"></div>
+      </div>
+    </div>
+
+    <!-- radial wheel -->
+    <div class="radial" id="radial">
+      <svg viewBox="-260 -260 520 520" id="radialSvg"></svg>
+      <div class="radial-center"><div class="rc-name" id="rcName">—</div><div class="rc-desc" id="rcDesc"></div></div>
+      <div class="radial-label">Quick Rites</div>
+    </div>
+
+    <!-- wax-seal letter -->
+    <div class="letter" id="letter">
+      <div class="letter-seal" id="letterSeal"></div>
+      <div><div class="letter-t">A letter arrives</div><div class="letter-d">The kernel scribes have prepared an update.</div></div>
+    </div>
+
+    <footer class="prompts keep">
+      <span><kbd>Enter</kbd> Select</span>
+      <span><kbd>Tab</kbd> Hold · Quick Rites</span>
+      <span><kbd>Z</kbd><kbd>C</kbd> Pages</span>
+      <span><kbd>Q</kbd><kbd>E</kbd> Realms</span>
+      <span><kbd>T</kbd> Style</span>
+    </footer>
+  </section>
+</main>
+
+<div id="grain"></div>
+
+<!-- style tweaker -->
+<aside id="tweaker">
+  <div class="tw-head"><b>Style tweaker</b><button id="twClose">✕</button></div>
+  <p class="tw-note">Try options, then press <em>Copy tokens</em> and paste them to Claude. Saved in this browser.</p>
+
+  <label>Keep panel style</label>
+  <div class="seg" data-key="panel">
+    <button data-v="ink">Ink-brush</button><button data-v="gold">Gold frame</button><button data-v="parch">Parchment</button>
+  </div>
+
+  <label>Keep header font</label>
+  <div class="seg" data-key="font">
+    <button data-v="cinzel">Cinzel</button><button data-v="fell">IM Fell</button><button data-v="cormorant">Cormorant</button>
+  </div>
+
+  <label>Metal accent</label>
+  <div class="seg" data-key="accent">
+    <button data-v="gold">Tarnished gold</button><button data-v="silver">Pale silver</button><button data-v="ember">Ember</button>
+  </div>
+
+  <label>Selection colour</label>
+  <div class="seg" data-key="sel">
+    <button data-v="crimson">Wax crimson</button><button data-v="gold">Gold</button><button data-v="ivory">Ivory</button>
+  </div>
+
+  <label>Keep backdrop mood</label>
+  <div class="seg" data-key="mood">
+    <button data-v="night">Night</button><button data-v="dusk">Dusk</button><button data-v="fog">Fog</button><button data-v="mono">Ink-mono</button>
+  </div>
+
+  <label>Film grain <span id="grainVal"></span></label>
+  <input type="range" min="0" max="0.3" step="0.01" id="grainRange">
+
+  <button class="tw-copy" id="twCopy">Copy tokens</button>
+  <pre id="twOut"></pre>
+</aside>
+
+<script src="art.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

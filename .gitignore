@@ -1,0 +1,10 @@
+# build output and QEMU artifacts
+build/
+target/
+*.iso
+*.img
+*.log
+frame.ppm
+frame.png
+# local Claude settings
+.claude/settings.local.json
