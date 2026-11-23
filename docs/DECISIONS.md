@@ -20,6 +20,10 @@
 | 16 | 2026-11-22 | Option A: `x86_64` crate 0.15.5 for CPU table formats only (GDT/IDT/TSS/page-table entries, registers) | Fewer silent-reset bugs, faster progress; contained in `arch/x86_64/`, replaceable later. All policy code is ours |
 | 17 | 2026-11-22 | Memory algorithms in a separate `sigil-mm` crate | Unit-testable on the host |
 | 18 | 2026-11-22 | Owner's laptop may be used as a real-hardware test machine | Owner's permission. Still never: firmware flashing, writing the internal SSD |
+| 19 | 2026-11-23 | Phase 3 plan: single core first; 3a cooperative threads → 3b timer preemption + sleep → 3c ring 3 → 3d syscalls → 3e ELF loader | Small, separately testable steps; SMP later |
+| 20 | 2026-11-23 | Thread stacks: 64 KiB each in 128 KiB slots with an unmapped guard page, in their own 1 GiB region (`0xffff_fd00…`) | Same overflow protection as the boot stack; slots reused |
+| 21 | 2026-11-23 | Round-robin scheduler; idle thread never queued; finished threads freed by the next scheduler run | Simple and fair; priorities can come later (e.g. for UI smoothness) |
+| 22 | 2026-11-23 | Cloud sessions (claude.ai/code) may build and test in their own container (QEMU without KVM) | Owner had no PC/USB at hand; the container is not the owner's PC |
 
 ## Open questions for the owner
 - Final OS name

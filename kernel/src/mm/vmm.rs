@@ -7,6 +7,7 @@
 //! | `HHDM + phys`                 | direct map of RAM, ACPI, framebuffer   | RW, no-exec      |
 //! | `0xffff_d000_0000_0000`       | scratch page for self-tests            | RW, no-exec      |
 //! | `0xffff_e000_0000_0000` +1 GiB| kernel heap (grows on demand)          | RW, no-exec      |
+//! | `0xffff_fd00_0000_0000` +1 GiB| thread stacks: 128 KiB slots, each = guard page + 64 KiB stack | RW, no-exec |
 //! | `0xffff_fe00_0000_0000`       | guard page (never mapped) + 64 KiB stack | RW, no-exec    |
 //! | `0xffff_ffff_8000_0000`       | kernel image: text / rodata / data     | RX / R / RW      |
 
@@ -28,6 +29,14 @@ pub const HEAP_MAX: u64 = 1 << 30;
 pub const STACK_GUARD: u64 = 0xffff_fe00_0000_0000;
 pub const STACK_SIZE: u64 = 64 * 1024;
 pub const STACK_TOP: u64 = STACK_GUARD + PAGE_SIZE as u64 + STACK_SIZE;
+
+/// Thread stacks: slot `n` starts at `THREAD_STACKS + n * THREAD_SLOT`. Its first page is a
+/// guard page that is never mapped; the stack itself follows (the rest of the slot is unused
+/// address space, so neighbouring stacks are never adjacent).
+pub const THREAD_STACKS: u64 = 0xffff_fd00_0000_0000;
+pub const THREAD_SLOT: u64 = 128 * 1024;
+pub const THREAD_SLOTS: usize = 8192; // 8192 x 128 KiB = 1 GiB of address space
+pub const THREAD_STACK_SIZE: u64 = 64 * 1024;
 
 static MAPPER: IrqMutex<Option<OffsetPageTable<'static>>> = IrqMutex::new(None);
 static HHDM: AtomicU64 = AtomicU64::new(0);
@@ -200,8 +209,16 @@ pub fn map_mmio(phys: u64, len: u64) -> u64 {
     hhdm() + phys
 }
 
-pub fn is_stack_guard(addr: u64) -> bool {
-    (STACK_GUARD..STACK_GUARD + PAGE_SIZE as u64).contains(&addr)
+/// If `addr` lies in a stack guard page, say whose: "kernel" (boot stack) or "thread".
+pub fn stack_guard_kind(addr: u64) -> Option<&'static str> {
+    if (STACK_GUARD..STACK_GUARD + PAGE_SIZE as u64).contains(&addr) {
+        return Some("kernel");
+    }
+    let end = THREAD_STACKS + THREAD_SLOTS as u64 * THREAD_SLOT;
+    if (THREAD_STACKS..end).contains(&addr) && (addr - THREAD_STACKS) % THREAD_SLOT < PAGE_SIZE as u64 {
+        return Some("thread");
+    }
+    None
 }
 
 /// Move onto the new kernel stack and continue in `next`. The old (bootloader) stack is

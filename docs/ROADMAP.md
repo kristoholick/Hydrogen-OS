@@ -39,13 +39,25 @@ Results (`make test-all`, QEMU 10.2.1 + KVM):
 - [x] Every run checked for triple-fault resets (none); only `build/` and `target/` written
 - Screenshots: `docs/screenshots/phase2-boot.png`, `phase2-page-fault.png`, `phase2-stack-overflow.png`
 
-## Phase 2.5 — First boot on real hardware (owner's Dell Latitude 3400)  ← next
+## Phase 2.5 — First boot on real hardware (owner's Dell Latitude 3400)  ← postponed (no USB stick at hand)
 Owner writes the ISO to a USB stick (Rufus) and disables Secure Boot. No disk drivers exist yet, so the
 internal SSD cannot be touched. Check: boots, screen draws, timer check passes on real hardware.
 
-## Phase 3 — Multitasking
+## Phase 3 — Multitasking  ← in progress
 Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF loader.
 **Accept:** two user processes print interleaved; a faulting process is killed without killing the kernel.
+
+Steps (single CPU core first):
+- [x] **3a — kernel threads + context switch** (2026-11-23): guarded 64 KiB thread stacks, naked-asm
+  `switch_context`, cooperative round-robin `yield_now`/`exit`/`join`, idle thread, zombie reaping.
+  - [x] `make test` — `selftest threads: ok (ABABABABAB …; 64 more threads ran; stacks freed; guard pages in place)`
+  - [x] `make test-fault-thread-stack` — `DOUBLE FAULT … thread stack overflow caught on emergency stack`, no reset
+  - [x] all Phase 1–2 tests still pass (`make test-all`, cloud container, QEMU 8.2 TCG — no KVM there)
+  - Screenshots: `docs/screenshots/phase3a-boot.png`, `phase3a-thread-stack-overflow.png`
+- [ ] **3b — preemption + sleep**: the timer forces a switch; `sleep(ms)`; idle thread halts the CPU
+- [ ] **3c — ring 3**: per-process page tables, user mode, TSS `rsp0`
+- [ ] **3d — `syscall`/`sysret`**: `write`, `exit`, `yield`
+- [ ] **3e — ELF loader**: load two separate programs (→ phase acceptance test)
 
 ## Phase 4 — Hardware
 PCIe enumeration, uACPI, VirtIO (blk, net, input, gpu), PS/2 keyboard/mouse, AHCI.

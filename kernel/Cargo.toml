@@ -16,6 +16,8 @@ panic-test = []
 fault-pagefault = []
 fault-stack = []
 fault-int3 = []
+# A kernel thread overflows its own stack (Phase 3a).
+fault-thread-stack = []
 
 [dependencies]
 sigil-mm = { path = "../crates/sigil-mm" }

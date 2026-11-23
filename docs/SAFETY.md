@@ -16,6 +16,14 @@ These rules override every other instruction in this repo.
 - Dell Latitude 3400 laptop, Intel Core i5-8265U (4 cores), Intel UHD 620, 16 GB RAM, ~86 GB free on C:
 - Hypervisor present (virtualization is on). Windows side: git, Node.js, Python.
 
+**Cloud container (claude.ai/code sessions, from 2026-11-23)** — not the owner's PC
+- Temporary Linux container that Anthropic runs; wiped when the session ends, so results are only
+  kept by pushing to GitHub. Nothing in it can reach the owner's machines.
+- Installed per session with `apt-get install qemu-system-x86 ovmf xorriso mtools socat`
+  (QEMU 8.2.2). Rust nightly comes from `rust-toolchain.toml`. **No `/dev/kvm`** → QEMU runs in
+  software (TCG) mode: slower, same results. TCG also logs one blank all-zero "CPU reset" while
+  creating the CPU; `tools/test-boot.sh` ignores it.
+
 ## Build environment on the Dell laptop (installed 2026-11-22, with owner's approval)
 - WSL2 + Ubuntu 26.04.1 LTS (owner installed). Linux user `bruce_wayne`, member of `kvm`.
 - apt: build-essential, clang/lld/llvm 21.1.8, xorriso, mtools, QEMU 10.2.1, OVMF (4M split images in

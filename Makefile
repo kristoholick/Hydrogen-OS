@@ -7,7 +7,7 @@ BUILD        := build
 KERNEL_ELF   := target/x86_64-unknown-none/release/sigil-kernel
 ISO          := $(BUILD)/sigil.iso
 # Test variants: each is the normal kernel plus one Cargo feature, built in its own target dir.
-VARIANTS     := panic-test fault-pagefault fault-stack fault-int3
+VARIANTS     := panic-test fault-pagefault fault-stack fault-int3 fault-thread-stack
 
 # --- Limine, pinned (official repo: codeberg.org/Limine/Limine) ---
 LIMINE_TAG    := v11.2.1-binary
@@ -25,7 +25,7 @@ QEMU_BASE  = qemu-system-x86_64 $(ACCEL) -M q35 -m 512M -no-reboot \
              -drive if=pflash,unit=1,format=raw,file=$(BUILD)/ovmf-vars.fd
 
 .PHONY: all kernel iso run debug unit test test-panic test-fault-pagefault test-fault-stack \
-        test-fault-int3 test-all limine clean distclean FORCE
+        test-fault-int3 test-fault-thread-stack test-all limine clean distclean FORCE
 
 all: iso
 
@@ -88,7 +88,8 @@ unit:
 test: iso
 	@bash tools/test-boot.sh $(ISO) $(BUILD)/test \
 		"SIGIL kernel online" "IDT loaded" "paging: own page tables active" "now on kernel stack" \
-		"selftest pmm: ok" "selftest paging: ok" "selftest heap: ok" "timer ok" "phase 2 boot complete"
+		"selftest pmm: ok" "selftest paging: ok" "selftest heap: ok" "timer ok" \
+		"threads: scheduler online" "selftest threads: ok (ABABABABAB" "boot complete (phase 3a)"
 
 test-panic: $(BUILD)/sigil-panic-test.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-panic "PANIC at kernel/src/main.rs"
@@ -100,9 +101,12 @@ test-fault-stack: $(BUILD)/sigil-fault-stack.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-fault-stack "EXCEPTION: DOUBLE FAULT" "kernel stack overflow"
 
 test-fault-int3: $(BUILD)/sigil-fault-int3.iso
-	@bash tools/test-boot.sh $< $(BUILD)/test-fault-int3 "BREAKPOINT at rip=" "resumed after breakpoint" "phase 2 boot complete"
+	@bash tools/test-boot.sh $< $(BUILD)/test-fault-int3 "BREAKPOINT at rip=" "resumed after breakpoint" "boot complete (phase 3a)"
 
-test-all: unit test test-panic test-fault-pagefault test-fault-stack test-fault-int3
+test-fault-thread-stack: $(BUILD)/sigil-fault-thread-stack.iso
+	@bash tools/test-boot.sh $< $(BUILD)/test-fault-thread-stack "EXCEPTION: DOUBLE FAULT" "thread stack overflow"
+
+test-all: unit test test-panic test-fault-pagefault test-fault-stack test-fault-int3 test-fault-thread-stack
 	@echo "[make] ALL TESTS PASSED"
 
 clean:

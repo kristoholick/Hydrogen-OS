@@ -61,7 +61,10 @@ fail=0
 # QEMU logs the CPU state at every reset. Start-up resets show the power-on state
 # (EIP=0000fff0, paging off). A reset caused by our code (triple fault) would show a running
 # 64-bit CPU ("RIP=...") or some other instruction pointer.
-bad_resets=$(grep -E '^(RIP|EIP)=' "$OUT/qemu.log" 2>/dev/null | grep -vc '^EIP=0000fff0' || true)
+# Without KVM (TCG), QEMU also logs the blank CPU it creates before power-on: every register is
+# zero, even EFLAGS, whose bit 1 is always set on a running CPU — so "EFL=00000000" is skipped.
+bad_resets=$(grep -E '^(RIP|EIP)=' "$OUT/qemu.log" 2>/dev/null | grep -v '^EIP=0000fff0' \
+  | grep -vc '^EIP=00000000 EFL=00000000 ' || true)
 if [ "${bad_resets:-0}" -gt 0 ]; then
   echo "[test] FAIL: $bad_resets CPU reset(s) after code started running (triple fault)"
   fail=1
@@ -80,7 +83,11 @@ for e in "${EXPECTS[@]}"; do
 done
 
 if [ $fail -eq 0 ]; then
-  echo "[test] PASS  (screenshot: $OUT/frame.png)"
+  if [ -f "$OUT/frame.png" ]; then
+    echo "[test] PASS  (screenshot: $OUT/frame.png)"
+  else
+    echo "[test] PASS  (no screenshot taken — is socat installed?)"
+  fi
 else
   echo "[test] FAILED"
 fi

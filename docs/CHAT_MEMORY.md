@@ -112,12 +112,24 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
 - Captured the Design Lab's three home screens into `docs/screenshots/design-lab-*.png`.
 - Lesson: from Git Bash, `/mnt/...` paths passed to `wsl` get rewritten — call `wsl` from PowerShell.
 
+## 6c. Session 3 (2026-11-23) — cloud session, Phase 3a
+- Owner had **no USB stick and no PC at hand**, so work moved to a claude.ai/code cloud container
+  (details in `docs/SAFETY.md`). Owner said "keep continue the building" → installed QEMU/OVMF/xorriso/socat there.
+- Owner agreed to the Phase 3 plan (3a → 3e, single core first; see `docs/ROADMAP.md`).
+- Fixed two test-script problems that only showed up in the cloud: TCG logs a blank all-zero CPU
+  reset (was a false triple-fault alarm); and without `socat` the script claimed a screenshot it
+  never took (now it says so honestly).
+- **Phase 3a done:** kernel threads with guarded 64 KiB stacks, assembly context switch,
+  cooperative round-robin scheduler, idle thread, zombie reaping. New tests: `ABABABABAB`
+  alternation, 64 threads with stack reuse/no leaks, and a thread stack overflow caught on the
+  emergency stack. `make test-all` passes (19 checks).
+- Code: `kernel/src/task/{mod,stack,switch}.rs`.
+
 ## 7. What's next
 
-1. **Phase 2.5 — first boot on the real laptop.** Owner writes the ISO to a USB stick (Rufus) and
-   disables Secure Boot. No disk drivers exist yet, so the SSD can't be touched.
-2. **Phase 3 — multitasking:** threads, context switching, scheduler, ring-3 processes,
-   `syscall`/`sysret`, ELF loader. Plan it with the owner first.
+1. **Phase 3b — preemption + sleep** (timer forces thread switches), then 3c ring 3, 3d syscalls,
+   3e ELF loader. Discuss each step's design with the owner first.
+2. **Phase 2.5 — first boot on the real laptop** — postponed until the owner has a USB stick.
 3. Later: hardware (PCIe, ACPI, VirtIO, input, storage) → file system + shell → **compositor and
    the three home screens (Phase 6)** → networking → USB/audio/NVMe → security.
 
@@ -127,4 +139,3 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
 - Top-10 Windows 11 features to rebuild first.
 - Visual choices from the Design Lab tweaker (panel style, header font, metal accent, selection
   colour, backdrop mood) to freeze into the design tokens.
-- Whether to do the real-hardware boot now or go straight to Phase 3.

@@ -82,7 +82,7 @@ pub fn boot_screen(fb: &mut Framebuffer, facts: &BootFacts) {
         y += line_h;
     }
 
-    fb.draw_text_centered(h - m - 46, "phase 2 - kernel foundations - idle", 2, ASH);
+    fb.draw_text_centered(h - m - 46, "phase 3a - kernel threads - idle", 2, ASH);
 }
 
 pub fn panic_screen(fb: &mut Framebuffer, location: &str, message: &str) {
