@@ -3,7 +3,7 @@
 
 #[cfg(feature = "fault-pagefault")]
 pub fn page_fault() {
-    crate::kprintln!("[sigil] fault test: writing to unmapped address 0xdeadb000");
+    crate::kprintln!("[hydrogen] fault test: writing to unmapped address 0xdeadb000");
     // SAFETY: deliberately invalid — this write must trigger a page fault, which the IDT
     // handler reports. Nothing is actually written.
     unsafe { (0xdead_b000 as *mut u64).write_volatile(42) };
@@ -18,13 +18,13 @@ pub fn stack_overflow() {
         core::hint::black_box(&frame);
         dive(depth + 1) + frame[0]
     }
-    crate::kprintln!("[sigil] fault test: recursing until the 64 KiB stack hits its guard page");
+    crate::kprintln!("[hydrogen] fault test: recursing until the 64 KiB stack hits its guard page");
     core::hint::black_box(dive(0));
 }
 
 #[cfg(feature = "fault-int3")]
 pub fn breakpoint() {
-    crate::kprintln!("[sigil] fault test: int3 breakpoint (recoverable)");
+    crate::kprintln!("[hydrogen] fault test: int3 breakpoint (recoverable)");
     x86_64::instructions::interrupts::int3();
-    crate::kprintln!("[sigil] fault test: resumed after breakpoint");
+    crate::kprintln!("[hydrogen] fault test: resumed after breakpoint");
 }

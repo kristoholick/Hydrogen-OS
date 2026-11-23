@@ -1,4 +1,4 @@
-//! Memory-management algorithms used by the SIGIL kernel.
+//! Memory-management algorithms used by the Hydrogen kernel.
 //!
 //! Nothing here touches hardware: the kernel supplies the memory, these types only keep
 //! the books. That is what lets `cargo test` check them on the host in milliseconds.

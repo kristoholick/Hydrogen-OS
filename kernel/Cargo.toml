@@ -1,11 +1,11 @@
 [package]
-name = "sigil-kernel"
+name = "hydrogen-kernel"
 version = "0.1.0"
 edition = "2024"
 publish = false
 
 [[bin]]
-name = "sigil-kernel"
+name = "hydrogen-kernel"
 test = false
 bench = false
 
@@ -18,7 +18,7 @@ fault-stack = []
 fault-int3 = []
 
 [dependencies]
-sigil-mm = { path = "../crates/sigil-mm" }
+hydrogen-mm = { path = "../crates/hydrogen-mm" }
 x86_64 = { version = "0.15", default-features = false, features = ["instructions", "abi_x86_interrupt"] }
 limine = "0.6.5"
 spin = "0.12.3"

@@ -1,0 +1,8 @@
+[package]
+name = "hydrogen-mm"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Architecture-independent memory-management algorithms for Hydrogen (unit-tested on the host)."
+
+[dependencies]

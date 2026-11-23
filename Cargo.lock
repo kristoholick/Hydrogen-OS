@@ -27,6 +27,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "875488b8711a968268c7cf5d139578713097ca4635a76044e8fe8eedf831d07e"
 
 [[package]]
+name = "hydrogen-kernel"
+version = "0.1.0"
+dependencies = [
+ "font8x8",
+ "hydrogen-mm",
+ "limine",
+ "spin",
+ "x86_64",
+]
+
+[[package]]
+name = "hydrogen-mm"
+version = "0.1.0"
+
+[[package]]
 name = "limine"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -52,21 +67,6 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
-
-[[package]]
-name = "sigil-kernel"
-version = "0.1.0"
-dependencies = [
- "font8x8",
- "limine",
- "sigil-mm",
- "spin",
- "x86_64",
-]
-
-[[package]]
-name = "sigil-mm"
-version = "0.1.0"
 
 [[package]]
 name = "spin"

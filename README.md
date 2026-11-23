@@ -1,11 +1,12 @@
-# SIGIL (working codename)
+# Hydrogen
 
 An independent operating system built from scratch: its own kernel, drivers, file system,
 compositor and a three-realm desktop inspired by cinematic consoles, spatial computing and
 medieval dark fantasy.
 
-> Status: **Phase 2 complete — kernel foundations.** Own page tables, memory manager, heap, interrupts,
-> timer; CPU faults are caught and reported. Next: first boot on real hardware, then Phase 3 (multitasking).
+> Status: **Phase 3 in progress — multitasking** (plan: `docs/PHASE3_PLAN.md`). Phase 2 done: own page
+> tables, memory manager, heap, interrupts, timer; CPU faults are caught and reported.
+> (Early history used the codename SIGIL.)
 
 | Boot screen | Stack overflow caught |
 |---|---|
@@ -39,7 +40,7 @@ From PowerShell in the repo folder:
 | Command | What it does |
 |---|---|
 | `make test-all` | Everything below, stops at the first failure |
-| `make unit` | Host unit tests for the memory algorithms (`crates/sigil-mm`) |
+| `make unit` | Host unit tests for the memory algorithms (`crates/hydrogen-mm`) |
 | `make test` | Boot headless for up to 20 s, save `build/test/serial.log` + `frame.png`, pass/fail |
 | `make test-panic` | Same with a deliberate panic, checks the crash screen |
 | `make test-fault-pagefault` / `-stack` / `-int3` | Deliberate CPU faults: must be caught, never reset |

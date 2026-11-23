@@ -1,4 +1,4 @@
-# Phase 3 plan — Multitasking for Hydrogen (PROPOSAL, awaiting the owner's OK)
+# Phase 3 plan — Multitasking for Hydrogen (APPROVED by the owner 2026-11-23, with choices A–F as recommended)
 
 **Goal (from ROADMAP.md):** threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`,
 ELF loader.

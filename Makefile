@@ -1,11 +1,11 @@
-# SIGIL build — run inside WSL Ubuntu from the repo root (or `.\tools\wsl.ps1 make <target>`).
+# Hydrogen build — run inside WSL Ubuntu from the repo root (or `.\tools\wsl.ps1 make <target>`).
 # Everything generated goes into build/ and target/. Nothing outside the repo is written.
 
 SHELL := /bin/bash
 
 BUILD        := build
-KERNEL_ELF   := target/x86_64-unknown-none/release/sigil-kernel
-ISO          := $(BUILD)/sigil.iso
+KERNEL_ELF   := target/x86_64-unknown-none/release/hydrogen-kernel
+ISO          := $(BUILD)/hydrogen.iso
 # Test variants: each is the normal kernel plus one Cargo feature, built in its own target dir.
 VARIANTS     := panic-test fault-pagefault fault-stack fault-int3
 
@@ -42,14 +42,14 @@ $(LIMINE_DIR)/.verified:
 
 # ---------- kernel ----------
 kernel:
-	cargo build --release -p sigil-kernel
+	cargo build --release -p hydrogen-kernel
 
 # ---------- ISO (UEFI boot only) ----------
 # $(1) kernel ELF, $(2) output ISO, $(3) staging dir
 define make_iso
 	@rm -rf $(3)
 	@mkdir -p $(3)/boot/limine $(3)/EFI/BOOT
-	@cp $(1) $(3)/boot/sigil-kernel
+	@cp $(1) $(3)/boot/hydrogen-kernel
 	@cp boot/limine.conf $(LIMINE_DIR)/limine-uefi-cd.bin $(3)/boot/limine/
 	@cp $(LIMINE_DIR)/BOOTX64.EFI $(3)/EFI/BOOT/
 	@xorriso -as mkisofs -R -r -J \
@@ -61,13 +61,13 @@ endef
 iso: limine kernel
 	$(call make_iso,$(KERNEL_ELF),$(ISO),$(BUILD)/iso_root)
 
-# build/sigil-<variant>.iso, e.g. build/sigil-fault-stack.iso
-$(BUILD)/sigil-%.iso: limine FORCE
-	cargo build --release -p sigil-kernel --features $* --target-dir target/variants/$*
-	$(call make_iso,target/variants/$*/x86_64-unknown-none/release/sigil-kernel,$@,$(BUILD)/iso_root_$*)
+# build/hydrogen-<variant>.iso, e.g. build/hydrogen-fault-stack.iso
+$(BUILD)/hydrogen-%.iso: limine FORCE
+	cargo build --release -p hydrogen-kernel --features $* --target-dir target/variants/$*
+	$(call make_iso,target/variants/$*/x86_64-unknown-none/release/hydrogen-kernel,$@,$(BUILD)/iso_root_$*)
 
 FORCE:
-.PRECIOUS: $(BUILD)/sigil-%.iso
+.PRECIOUS: $(BUILD)/hydrogen-%.iso
 
 $(BUILD)/ovmf-vars.fd:
 	@cp $(OVMF_VARS) $@
@@ -83,23 +83,23 @@ debug: iso $(BUILD)/ovmf-vars.fd
 
 # ---------- automated tests (headless, time-limited) ----------
 unit:
-	cargo test -p sigil-mm --target x86_64-unknown-linux-gnu
+	cargo test -p hydrogen-mm --target x86_64-unknown-linux-gnu
 
 test: iso
 	@bash tools/test-boot.sh $(ISO) $(BUILD)/test \
-		"SIGIL kernel online" "IDT loaded" "paging: own page tables active" "now on kernel stack" \
+		"Hydrogen kernel online" "IDT loaded" "paging: own page tables active" "now on kernel stack" \
 		"selftest pmm: ok" "selftest paging: ok" "selftest heap: ok" "timer ok" "phase 2 boot complete"
 
-test-panic: $(BUILD)/sigil-panic-test.iso
+test-panic: $(BUILD)/hydrogen-panic-test.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-panic "PANIC at kernel/src/main.rs"
 
-test-fault-pagefault: $(BUILD)/sigil-fault-pagefault.iso
+test-fault-pagefault: $(BUILD)/hydrogen-fault-pagefault.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-fault-pagefault "EXCEPTION: PAGE FAULT at 0xdeadb000"
 
-test-fault-stack: $(BUILD)/sigil-fault-stack.iso
+test-fault-stack: $(BUILD)/hydrogen-fault-stack.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-fault-stack "EXCEPTION: DOUBLE FAULT" "kernel stack overflow"
 
-test-fault-int3: $(BUILD)/sigil-fault-int3.iso
+test-fault-int3: $(BUILD)/hydrogen-fault-int3.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-fault-int3 "BREAKPOINT at rip=" "resumed after breakpoint" "phase 2 boot complete"
 
 test-all: unit test test-panic test-fault-pagefault test-fault-stack test-fault-int3

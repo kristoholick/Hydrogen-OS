@@ -16,8 +16,8 @@ fn panic(info: &PanicInfo) -> ! {
     };
     let message = fmtbuf!(512, "{}", info.message());
 
-    print_unlocked(format_args!("\n[sigil] PANIC at {}: {}\n", location.as_str(), message.as_str()));
-    print_unlocked(format_args!("[sigil] halted\n"));
+    print_unlocked(format_args!("\n[hydrogen] PANIC at {}: {}\n", location.as_str(), message.as_str()));
+    print_unlocked(format_args!("[hydrogen] halted\n"));
 
     // SAFETY: interrupts are off and only one core runs (no SMP yet), so whatever held the
     // framebuffer lock can never release it; taking it over is the only way to report.

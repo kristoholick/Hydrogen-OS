@@ -94,7 +94,7 @@ fatal_handler!(vmm_communication, "VMM COMMUNICATION", code);
 fatal_handler!(security_exception, "SECURITY EXCEPTION", code);
 
 extern "x86-interrupt" fn breakpoint(f: InterruptStackFrame) {
-    kprintln!("[sigil] BREAKPOINT at rip={:#x} - handled, continuing", f.instruction_pointer.as_u64());
+    kprintln!("[hydrogen] BREAKPOINT at rip={:#x} - handled, continuing", f.instruction_pointer.as_u64());
 }
 
 extern "x86-interrupt" fn page_fault(f: InterruptStackFrame, code: PageFaultErrorCode) {

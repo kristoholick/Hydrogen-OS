@@ -1,4 +1,4 @@
-/* SIGIL kernel layout: higher-half, loaded by Limine at the top 2 GiB of virtual memory.
+/* Hydrogen kernel layout: higher-half, loaded by Limine at the top 2 GiB of virtual memory.
  * The __*_start/__*_end symbols let the kernel map each section with its own permissions. */
 OUTPUT_FORMAT(elf64-x86-64)
 ENTRY(kmain)

@@ -14,7 +14,7 @@ use super::pmm::{self, PmmFrameAllocator};
 use crate::sync::IrqMutex;
 use core::sync::atomic::{AtomicU64, Ordering};
 use limine::memmap::*;
-use sigil_mm::PAGE_SIZE;
+use hydrogen_mm::PAGE_SIZE;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::mapper::{MapToError, Translate};
 use x86_64::structures::paging::{

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["kernel", "crates/sigil-mm"]
+members = ["kernel", "crates/hydrogen-mm"]
 default-members = ["kernel"]
 
 [profile.dev]

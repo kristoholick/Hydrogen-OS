@@ -20,7 +20,7 @@ ACCEL="-accel tcg -cpu max"
 
 rm -rf "$OUT" && mkdir -p "$OUT"
 cp /usr/share/OVMF/OVMF_VARS_4M.fd "$OUT/ovmf-vars.fd"
-SOCK=$(mktemp -u /tmp/sigil-qemu-XXXXXX.sock)   # unix sockets cannot live on /mnt/c
+SOCK=$(mktemp -u /tmp/hydrogen-qemu-XXXXXX.sock)   # unix sockets cannot live on /mnt/c
 
 echo "[test] booting $ISO ($ACCEL), limit ${LIMIT}s"
 timeout $((LIMIT + 10)) qemu-system-x86_64 $ACCEL -M q35 -m 512M -no-reboot \

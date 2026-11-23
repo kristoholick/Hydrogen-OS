@@ -1,7 +1,7 @@
 # Project rules for Claude Code
 
-This repo is **Hydrogen**, an independent, from-scratch operating system (early code and docs still say
-its old codename **SIGIL**; the rename is planned as step 3.0 of Phase 3).
+This repo is **Hydrogen**, an independent, from-scratch operating system (formerly codenamed SIGIL;
+old logs and decision entries keep that name as history).
 It is NOT a Linux distribution and must never embed the Linux kernel.
 
 **Resuming work? Read `docs/CHAT_MEMORY.md` first** — goals, decisions, progress and open questions.

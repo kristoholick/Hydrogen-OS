@@ -1,12 +1,12 @@
-//! Kernel heap: `Box`, `Vec`, `String`, `BTreeMap`… backed by `sigil_mm::heap`.
+//! Kernel heap: `Box`, `Vec`, `String`, `BTreeMap`… backed by `hydrogen_mm::heap`.
 //! Pages come from the PMM and are mapped on demand into the heap region.
 
 use super::{pmm, vmm};
 use crate::sync::IrqMutex;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::NonNull;
-use sigil_mm::PAGE_SIZE;
-use sigil_mm::heap::{HeapStats, PageSource, SizeClassHeap};
+use hydrogen_mm::PAGE_SIZE;
+use hydrogen_mm::heap::{HeapStats, PageSource, SizeClassHeap};
 use x86_64::PhysAddr;
 use x86_64::structures::paging::PageTableFlags as F;
 

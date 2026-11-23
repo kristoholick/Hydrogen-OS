@@ -27,7 +27,7 @@ pub fn physical_memory() {
         pmm::free_frame(PhysAddr::new(*f));
     }
     assert_eq!(pmm::stats().free_frames, before, "frames leaked");
-    kprintln!("[sigil] selftest pmm: ok (1000 frames allocated, unique, all returned)");
+    kprintln!("[hydrogen] selftest pmm: ok (1000 frames allocated, unique, all returned)");
 }
 
 pub fn paging() {
@@ -46,7 +46,7 @@ pub fn paging() {
     assert_eq!(vmm::unmap_page(vmm::SCRATCH_VIRT), Some(frame));
     assert_eq!(vmm::translate(vmm::SCRATCH_VIRT), None, "page still mapped after unmap");
     pmm::free_frame(PhysAddr::new(frame));
-    kprintln!("[sigil] selftest paging: ok (map, alias check, unmap)");
+    kprintln!("[hydrogen] selftest paging: ok (map, alias check, unmap)");
 }
 
 pub fn heap() {
@@ -61,8 +61,8 @@ pub fn heap() {
         let b = Box::new([7u8; 2048]);
         assert!(b.iter().all(|&x| x == 7));
 
-        let s: String = format!("{} kernel, heap at {:#x}", "SIGIL", vmm::HEAP_START);
-        assert!(s.starts_with("SIGIL kernel"));
+        let s: String = format!("{} kernel, heap at {:#x}", "Hydrogen", vmm::HEAP_START);
+        assert!(s.starts_with("Hydrogen kernel"));
 
         let mut map = BTreeMap::new();
         for i in 0..1000u32 {
@@ -76,7 +76,7 @@ pub fn heap() {
     let after = heap::stats();
     assert_eq!(after.live, base.live, "heap allocations leaked");
     assert_eq!(after.bytes_in_use, base.bytes_in_use, "heap bytes leaked");
-    kprintln!("[sigil] selftest heap: ok (Vec 10k, Box, String, BTreeMap 1k, 1 MiB buffer; no leaks)");
+    kprintln!("[hydrogen] selftest heap: ok (Vec 10k, Box, String, BTreeMap 1k, 1 MiB buffer; no leaks)");
 }
 
 /// Count timer ticks across one second of the CMOS real-time clock — an independent clock,

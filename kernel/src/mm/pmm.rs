@@ -1,10 +1,10 @@
 //! Physical memory manager: which 4 KiB frames of RAM are free.
-//! The bookkeeping itself lives in `sigil_mm::bitmap` (unit-tested on the host).
+//! The bookkeeping itself lives in `hydrogen_mm::bitmap` (unit-tested on the host).
 
 use crate::sync::IrqMutex;
 use limine::memmap::{Entry, MEMMAP_USABLE};
-use sigil_mm::PAGE_SIZE;
-use sigil_mm::bitmap::FrameBitmap;
+use hydrogen_mm::PAGE_SIZE;
+use hydrogen_mm::bitmap::FrameBitmap;
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{FrameAllocator, PhysFrame, Size4KiB};
 

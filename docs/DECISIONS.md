@@ -18,7 +18,7 @@
 | 14 | 2026-11-22 | `font8x8` bitmap font for early text | Placeholder until fontdue + real fonts in Phase 6 |
 | 15 | 2026-11-22 | 🔒 Three home screens locked: left PS5-style Theatre, center visionOS-style Aether, right medieval Keep | Owner's explicit requirement; changes need the owner's OK |
 | 16 | 2026-11-22 | Option A: `x86_64` crate 0.15.5 for CPU table formats only (GDT/IDT/TSS/page-table entries, registers) | Fewer silent-reset bugs, faster progress; contained in `arch/x86_64/`, replaceable later. All policy code is ours |
-| 17 | 2026-11-22 | Memory algorithms in a separate `sigil-mm` crate | Unit-testable on the host |
+| 17 | 2026-11-22 | Memory algorithms in a separate `sigil-mm` crate (renamed `hydrogen-mm` in step 3.0) | Unit-testable on the host |
 | 18 | 2026-11-22 | Owner's laptop may be used as a real-hardware test machine | Owner's permission. Still never: firmware flashing, writing the internal SSD |
 | 19 | 2026-11-23 | **OS name: Hydrogen** (replaces codename SIGIL) | Owner's choice. Note: OnePlus once shipped an Android skin called "HydrogenOS" — fine for a personal project, worth a check before any public release |
 | 20 | 2026-11-23 | Long-term goal: equivalents of **all** everyday Windows 11 features | Owner's request. Built in phase order (see ARCHITECTURE.md §8); running Windows `.exe` files stays out of scope |

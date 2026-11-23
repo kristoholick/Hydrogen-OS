@@ -59,7 +59,7 @@ pub fn boot_screen(fb: &mut Framebuffer, facts: &BootFacts) {
 
     let big = (h / 110).clamp(3, 10);
     let title_y = h * 26 / 100;
-    fb.draw_text_centered(title_y, "SIGIL", big, IVORY);
+    fb.draw_text_centered(title_y, "HYDROGEN", big, IVORY);
     let sub_y = title_y + 8 * big + 18;
     fb.draw_text_centered(sub_y, "THE KEEP STANDS", 2, GOLD);
     divider(fb, sub_y + 40, (w / 3).max(200), VOID);

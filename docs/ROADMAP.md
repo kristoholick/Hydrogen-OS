@@ -39,13 +39,18 @@ Results (`make test-all`, QEMU 10.2.1 + KVM):
 - [x] Every run checked for triple-fault resets (none); only `build/` and `target/` written
 - Screenshots: `docs/screenshots/phase2-boot.png`, `phase2-page-fault.png`, `phase2-stack-overflow.png`
 
-## Phase 2.5 — First boot on real hardware (owner's Dell Latitude 3400)  ← next
+## Phase 2.5 — First boot on real hardware (owner's Dell Latitude 3400)  ← when on the laptop
 Owner writes the ISO to a USB stick (Rufus) and disables Secure Boot. No disk drivers exist yet, so the
 internal SSD cannot be touched. Check: boots, screen draws, timer check passes on real hardware.
 
-## Phase 3 — Multitasking
+## Phase 3 — Multitasking  ← in progress (plan approved 2026-11-23: `docs/PHASE3_PLAN.md`)
 Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF loader.
 **Accept:** two user processes print interleaved; a faulting process is killed without killing the kernel.
+
+- [x] 3.0 Rename SIGIL → **Hydrogen** (crates `hydrogen-kernel`/`hydrogen-mm`, `[hydrogen]` log tags,
+      boot screen, ISO, Limine entry). `make test-all` PASS on the Ryzen desktop (KVM, AMD) —
+      `docs/screenshots/phase3-0-hydrogen-boot.png`
+- [ ] 3.1 Kernel threads · [ ] 3.2 Preemption · [ ] 3.3 Ring 3 + syscalls · [ ] 3.4 ELF loader · [ ] 3.5 Fault isolation
 
 ## Phase 4 — Hardware
 PCIe enumeration, uACPI, VirtIO (blk, net, input, gpu), PS/2 keyboard/mouse, AHCI.
