@@ -22,6 +22,24 @@ pub fn stack_overflow() {
     core::hint::black_box(dive(0));
 }
 
+/// Same as `stack_overflow`, but inside a kernel thread: its 16 KiB stack must hit its own
+/// guard page (not run into another thread's memory).
+#[cfg(feature = "fault-thread-stack")]
+pub fn thread_stack_overflow() {
+    #[allow(unconditional_recursion)]
+    #[inline(never)]
+    fn dive(depth: u64) -> u64 {
+        let frame = [depth; 32];
+        core::hint::black_box(&frame);
+        dive(depth + 1) + frame[0]
+    }
+    crate::kprintln!("[hydrogen] fault test: a thread recursing until its 16 KiB stack hits its guard page");
+    crate::sched::spawn("overflow", || {
+        core::hint::black_box(dive(0));
+    });
+    crate::sched::yield_now();
+}
+
 #[cfg(feature = "fault-int3")]
 pub fn breakpoint() {
     crate::kprintln!("[hydrogen] fault test: int3 breakpoint (recoverable)");

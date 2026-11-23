@@ -7,6 +7,7 @@
 //! | `HHDM + phys`                 | direct map of RAM, ACPI, framebuffer   | RW, no-exec      |
 //! | `0xffff_d000_0000_0000`       | scratch page for self-tests            | RW, no-exec      |
 //! | `0xffff_e000_0000_0000` +1 GiB| kernel heap (grows on demand)          | RW, no-exec      |
+//! | `0xffff_fd00_0000_0000`       | thread stacks: 64 KiB slots, each a guard page + 16 KiB stack (`sched::stack`) | RW, no-exec |
 //! | `0xffff_fe00_0000_0000`       | guard page (never mapped) + 64 KiB stack | RW, no-exec    |
 //! | `0xffff_ffff_8000_0000`       | kernel image: text / rodata / data     | RX / R / RW      |
 

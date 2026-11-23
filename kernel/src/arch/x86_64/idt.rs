@@ -99,15 +99,24 @@ extern "x86-interrupt" fn breakpoint(f: InterruptStackFrame) {
 
 extern "x86-interrupt" fn page_fault(f: InterruptStackFrame, code: PageFaultErrorCode) {
     let addr = Cr2::read_raw();
-    let hint = if mm::vmm::is_stack_guard(addr) { " - kernel stack overflow (guard page)" } else { "" };
+    let hint = if mm::vmm::is_stack_guard(addr) {
+        " - kernel stack overflow (guard page)"
+    } else if crate::sched::is_thread_stack_guard(addr) {
+        " - thread stack overflow (guard page)"
+    } else {
+        ""
+    };
     panic!("EXCEPTION: PAGE FAULT at {:#x} ({:?}) rip={:#x}{}",
         addr, code, f.instruction_pointer.as_u64(), hint);
 }
 
 extern "x86-interrupt" fn double_fault(f: InterruptStackFrame, _code: u64) -> ! {
     let rsp = f.stack_pointer.as_u64();
-    let hint = if mm::vmm::is_stack_guard(rsp) || mm::vmm::is_stack_guard(rsp.wrapping_sub(8)) {
+    let near = |guard: fn(u64) -> bool| guard(rsp) || guard(rsp.wrapping_sub(8));
+    let hint = if near(mm::vmm::is_stack_guard) {
         " - kernel stack overflow caught on emergency stack"
+    } else if near(crate::sched::is_thread_stack_guard) {
+        " - thread stack overflow caught on emergency stack"
     } else {
         ""
     };

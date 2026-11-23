@@ -50,7 +50,10 @@ Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF lo
 - [x] 3.0 Rename SIGIL → **Hydrogen** (crates `hydrogen-kernel`/`hydrogen-mm`, `[hydrogen]` log tags,
       boot screen, ISO, Limine entry). `make test-all` PASS on the Ryzen desktop (KVM, AMD) —
       `docs/screenshots/phase3-0-hydrogen-boot.png`
-- [ ] 3.1 Kernel threads · [ ] 3.2 Preemption · [ ] 3.3 Ring 3 + syscalls · [ ] 3.4 ELF loader · [ ] 3.5 Fault isolation
+- [x] 3.1 Kernel threads — 16 KiB stacks with guard pages, `switch_context` (asm), cooperative
+  `yield_now`/`exit`; `make test-threads` (kernel checks exact order `A1 B1 A2 B2 A3 B3`) and
+  `make test-fault-thread-stack` (overflow hits the thread's own guard page). Passed 2026-11-24 on the Ryzen.
+- [ ] 3.2 Preemption · [ ] 3.3 Ring 3 + syscalls · [ ] 3.4 ELF loader · [ ] 3.5 Fault isolation
 
 ## Phase 4 — Hardware
 PCIe enumeration, uACPI, VirtIO (blk, net, input, gpu), PS/2 keyboard/mouse, AHCI.

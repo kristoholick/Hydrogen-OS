@@ -18,6 +18,7 @@ mod faulttest;
 mod fmtbuf;
 mod mm;
 mod panic;
+mod sched;
 mod selftest;
 mod splash;
 mod sync;
@@ -124,6 +125,11 @@ extern "C" fn kmain_stage2() -> ! {
         }
     };
 
+    // --- kernel threads (cooperative until step 3.2) ---
+    sched::init();
+    kprintln!("[hydrogen] sched: boot path is now thread 0 (kmain)");
+    selftest::threads();
+
     // --- deliberate fault tests (only in their own test builds) ---
     #[cfg(feature = "fault-int3")]
     faulttest::breakpoint();
@@ -131,6 +137,8 @@ extern "C" fn kmain_stage2() -> ! {
     faulttest::page_fault();
     #[cfg(feature = "fault-stack")]
     faulttest::stack_overflow();
+    #[cfg(feature = "fault-thread-stack")]
+    faulttest::thread_stack_overflow();
 
     // --- boot screen ---
     draw_boot_screen(timer_text.as_str());

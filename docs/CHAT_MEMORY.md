@@ -112,6 +112,16 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
 - Captured the Design Lab's three home screens into `docs/screenshots/design-lab-*.png`.
 - Lesson: from Git Bash, `/mnt/...` paths passed to `wsl` get rewritten — call `wsl` from PowerShell.
 
+## 6c. Session 2, continued (2026-11-23/24) — Phase 3 started
+- Owner approved `docs/PHASE3_PLAN.md` (choices A–F as recommended) and the name **Hydrogen**.
+- **3.0 done:** everything renamed SIGIL → Hydrogen (commit `3c7dc5f`).
+- **3.1 done:** kernel threads in `kernel/src/sched/` — thread 0 is the boot path; new threads
+  get 16 KiB stacks in slots at `0xffff_fd00_0000_0000` (guard page each); context switch is
+  ~15 lines of asm; switching is still cooperative (timer takes over in 3.2). Thread stacks are
+  not freed yet (3.2 adds the reaper). `make test-all` = 13 unit tests + 7 QEMU boots, all pass.
+- Lesson: passing `$?`/`|`/quotes through `tools/wsl.ps1` gets mangled by PowerShell; put
+  multi-part commands in a script (e.g. `build/run-test-all.sh`, not committed) and run that.
+
 ## 7. What's next
 
 1. **Phase 2.5 — first boot on the real laptop.** Owner writes the ISO to a USB stick (Rufus) and
@@ -126,7 +136,6 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
 _Answered 2026-11-23: name = **Hydrogen**; Windows features = **all** (map in ARCHITECTURE.md §8);
 chose Phase 3 over the laptop USB boot for now. Phase 3 plan proposed in `docs/PHASE3_PLAN.md`._
 
-- Approval of `docs/PHASE3_PLAN.md` (steps 3.0–3.5 and choices A–F).
 - Visual choices from the Design Lab tweaker (panel style, header font, metal accent, selection
   colour, backdrop mood) to freeze into the design tokens.
 - Real-hardware USB boot on the Dell laptop (Phase 2.5) — still to do when on the laptop.

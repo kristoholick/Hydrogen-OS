@@ -79,6 +79,43 @@ pub fn heap() {
     kprintln!("[hydrogen] selftest heap: ok (Vec 10k, Box, String, BTreeMap 1k, 1 MiB buffer; no leaks)");
 }
 
+/// Two kernel threads take turns (cooperative yield). Each appends "A1", "B1", ... to a shared
+/// trace; the boot thread waits until both have exited and checks the exact order.
+pub fn threads() {
+    use crate::sched::{self, State};
+    use crate::sync::IrqMutex;
+
+    static TRACE: IrqMutex<String> = IrqMutex::new(String::new());
+    const STEPS: u32 = 3;
+
+    fn worker(tag: char) {
+        for i in 1..=STEPS {
+            let id = sched::current_id();
+            kprintln!("[hydrogen] thread {} (id {}): step {}", tag, id, i);
+            let mut t = TRACE.lock();
+            if !t.is_empty() {
+                t.push(' ');
+            }
+            t.push(tag);
+            t.push_str(&format!("{}", i));
+            drop(t);
+            sched::yield_now();
+        }
+    }
+
+    let a = sched::spawn("thread-a", || worker('A'));
+    let b = sched::spawn("thread-b", || worker('B'));
+    let mut rounds = 0u32;
+    while sched::state_of(a) != Some(State::Dead) || sched::state_of(b) != Some(State::Dead) {
+        sched::yield_now();
+        rounds += 1;
+        assert!(rounds < 1000, "threads never finished");
+    }
+    let trace = TRACE.lock().clone();
+    assert_eq!(trace, "A1 B1 A2 B2 A3 B3", "threads did not alternate");
+    kprintln!("[hydrogen] selftest threads: ok ({}; 2 threads on 16 KiB guarded stacks, both exited)", trace);
+}
+
 /// Count timer ticks across one second of the CMOS real-time clock — an independent clock,
 /// so this checks the APIC calibration rather than trusting it. Returns ticks counted.
 pub fn timer_vs_rtc() -> Option<u64> {
