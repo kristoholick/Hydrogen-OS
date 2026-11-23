@@ -99,19 +99,22 @@ extern "x86-interrupt" fn breakpoint(f: InterruptStackFrame) {
 
 extern "x86-interrupt" fn page_fault(f: InterruptStackFrame, code: PageFaultErrorCode) {
     let addr = Cr2::read_raw();
-    let hint = if mm::vmm::is_stack_guard(addr) { " - kernel stack overflow (guard page)" } else { "" };
-    panic!("EXCEPTION: PAGE FAULT at {:#x} ({:?}) rip={:#x}{}",
-        addr, code, f.instruction_pointer.as_u64(), hint);
+    match mm::vmm::stack_guard_kind(addr) {
+        Some(kind) => panic!("EXCEPTION: PAGE FAULT at {:#x} ({:?}) rip={:#x} - {} stack overflow (guard page)",
+            addr, code, f.instruction_pointer.as_u64(), kind),
+        None => panic!("EXCEPTION: PAGE FAULT at {:#x} ({:?}) rip={:#x}",
+            addr, code, f.instruction_pointer.as_u64()),
+    }
 }
 
 extern "x86-interrupt" fn double_fault(f: InterruptStackFrame, _code: u64) -> ! {
     let rsp = f.stack_pointer.as_u64();
-    let hint = if mm::vmm::is_stack_guard(rsp) || mm::vmm::is_stack_guard(rsp.wrapping_sub(8)) {
-        " - kernel stack overflow caught on emergency stack"
-    } else {
-        ""
-    };
-    panic!("EXCEPTION: DOUBLE FAULT at rip={:#x} rsp={:#x}{}", f.instruction_pointer.as_u64(), rsp, hint);
+    let kind = mm::vmm::stack_guard_kind(rsp).or(mm::vmm::stack_guard_kind(rsp.wrapping_sub(8)));
+    match kind {
+        Some(kind) => panic!("EXCEPTION: DOUBLE FAULT at rip={:#x} rsp={:#x} - {} stack overflow caught on emergency stack",
+            f.instruction_pointer.as_u64(), rsp, kind),
+        None => panic!("EXCEPTION: DOUBLE FAULT at rip={:#x} rsp={:#x}", f.instruction_pointer.as_u64(), rsp),
+    }
 }
 
 extern "x86-interrupt" fn machine_check(f: InterruptStackFrame) -> ! {

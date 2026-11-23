@@ -98,3 +98,55 @@ pub fn timer_vs_rtc() -> Option<u64> {
     let t1 = wait_edge(300)?;
     Some(t1 - t0)
 }
+
+/// Threads take turns: A and B each log their letter and yield five times, which must give
+/// exactly "ABABABABAB". Then 64 short threads run to check stacks are freed and reused.
+pub fn threads() {
+    use crate::sync::IrqMutex;
+    use crate::task;
+    use alloc::sync::Arc;
+    use core::sync::atomic::{AtomicU64, Ordering};
+
+    assert!(task::stack_layout_ok(), "thread stack layout wrong (guard page mapped, or stack not mapped/unmapped)");
+    let base_threads = task::thread_count();
+    let base_stacks = task::live_stacks();
+
+    // 1) strict alternation between two threads
+    let trace = Arc::new(IrqMutex::new(String::new()));
+    let mut ids = Vec::new();
+    for (name, letter) in [("selftest-a", 'A'), ("selftest-b", 'B')] {
+        let t = trace.clone();
+        ids.push(task::spawn(name, move || {
+            for _ in 0..5 {
+                t.lock().push(letter);
+                task::yield_now();
+            }
+        }).expect("spawn failed"));
+    }
+    for id in ids {
+        task::join(id);
+    }
+    let seen = trace.lock().clone();
+    assert_eq!(seen, "ABABABABAB", "threads did not take turns");
+
+    // 2) many threads, each with its own stack; slots must be freed and reused
+    let sum = Arc::new(AtomicU64::new(0));
+    let mut ids = Vec::new();
+    for i in 1..=64u64 {
+        let s = sum.clone();
+        ids.push(task::spawn("selftest-many", move || {
+            let local = [i; 64]; // touch this thread's own stack
+            task::yield_now();
+            s.fetch_add(core::hint::black_box(local)[63], Ordering::Relaxed);
+        }).expect("spawn failed"));
+    }
+    for id in ids {
+        task::join(id);
+    }
+    assert_eq!(sum.load(Ordering::Relaxed), 64 * 65 / 2, "a thread's work went missing");
+
+    task::yield_now(); // the scheduler frees finished threads on its next run
+    assert_eq!(task::thread_count(), base_threads, "finished threads were not freed");
+    assert_eq!(task::live_stacks(), base_stacks, "thread stacks leaked");
+    kprintln!("[sigil] selftest threads: ok ({} interleaved; 64 more threads ran; stacks freed; guard pages in place)", seen);
+}

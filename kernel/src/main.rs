@@ -3,7 +3,8 @@
 //! Boot path: UEFI firmware → Limine → `kmain` (higher half, long mode, Limine's page tables).
 //!   stage 1 (`kmain`, on Limine's stack): serial, CPU tables, framebuffer, physical memory,
 //!            our own page tables, then hop onto the kernel's own guarded stack.
-//!   stage 2 (`kmain_stage2`): heap, interrupt controller + timer, self-checks, boot screen.
+//!   stage 2 (`kmain_stage2`): heap, interrupt controller + timer, threads, self-checks,
+//!            boot screen. From `task::init` on, this code runs as thread 0 ("boot").
 
 #![no_std]
 #![no_main]
@@ -21,6 +22,7 @@ mod panic;
 mod selftest;
 mod splash;
 mod sync;
+mod task;
 mod time;
 
 use arch::x86_64::{apic, cpu, gdt, idt, pic};
@@ -124,6 +126,11 @@ extern "C" fn kmain_stage2() -> ! {
         }
     };
 
+    // --- threads (Phase 3a: cooperative round-robin) ---
+    task::init();
+    kprintln!("[sigil] threads: scheduler online (boot = thread {}, idle thread ready)", task::current_id());
+    selftest::threads();
+
     // --- deliberate fault tests (only in their own test builds) ---
     #[cfg(feature = "fault-int3")]
     faulttest::breakpoint();
@@ -131,6 +138,8 @@ extern "C" fn kmain_stage2() -> ! {
     faulttest::page_fault();
     #[cfg(feature = "fault-stack")]
     faulttest::stack_overflow();
+    #[cfg(feature = "fault-thread-stack")]
+    faulttest::thread_stack_overflow();
 
     // --- boot screen ---
     draw_boot_screen(timer_text.as_str());
@@ -140,7 +149,7 @@ extern "C" fn kmain_stage2() -> ! {
 
     #[allow(unreachable_code)]
     {
-        kprintln!("[sigil] phase 2 boot complete; idling with timer running");
+        kprintln!("[sigil] boot complete (phase 3a); idling with timer running");
         arch::idle_forever()
     }
 }
