@@ -123,8 +123,10 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
 
 ## 8. Still open (ask the owner)
 
-- Final OS name.
-- Top-10 Windows 11 features to rebuild first.
+_Answered 2026-11-23: name = **Hydrogen**; Windows features = **all** (map in ARCHITECTURE.md §8);
+chose Phase 3 over the laptop USB boot for now. Phase 3 plan proposed in `docs/PHASE3_PLAN.md`._
+
+- Approval of `docs/PHASE3_PLAN.md` (steps 3.0–3.5 and choices A–F).
 - Visual choices from the Design Lab tweaker (panel style, header font, metal accent, selection
   colour, backdrop mood) to freeze into the design tokens.
-- Whether to do the real-hardware boot now or go straight to Phase 3.
+- Real-hardware USB boot on the Dell laptop (Phase 2.5) — still to do when on the laptop.

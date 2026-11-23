@@ -73,5 +73,28 @@ Pointer events pass through for mouse-first realms (Aether).
 4. Long term: a LinuxKPI-style compatibility shim (as FreeBSD does) to reuse Linux GPU/Wi-Fi drivers.
 
 ## 8. Windows 11 feature parity
-We build our own equivalents. Running native Windows `.exe` software is out of scope
-(Wine-scale project). Owner's top-10 feature list: **pending**.
+Owner's goal (2026-11-23): **equivalents of all everyday Windows 11 features.** We build our own
+versions; running native Windows `.exe` software is out of scope (Wine-scale project).
+Order follows the roadmap — each feature needs the layers under it first:
+
+| Windows 11 feature | Hydrogen equivalent | Phase |
+|---|---|---|
+| Multitasking, Task Manager | scheduler + processes; **Astrolabe** (system monitor) | 3 → 6 |
+| Device Manager, drivers, plug-and-play | PCIe/ACPI device tree, driver framework | 4, 8 |
+| File Explorer, search, zip | VFS + **The Archive** (map in the Keep, lists elsewhere) | 5 → 6 |
+| Terminal / PowerShell | **The Forge** + shell | 5 |
+| Desktop, Start menu, taskbar, Snap layouts, virtual desktops | the three realms (Theatre / Aether / Keep), radial wheel, Satchel | 6 |
+| Notifications, Action Center, quick settings | wax-seal letters (Keep), pills (Aether), status line (Theatre) | 6 |
+| Settings app | **Codex** (skill tree in the Keep) | 6 |
+| Lock screen, sign-in, user accounts | session manager + per-user home | 6, 9 |
+| Wi-Fi, Ethernet, Bluetooth | network stack (smoltcp); Wi-Fi/BT drivers are long-term | 7, 8+ |
+| Web browser (Edge) | port of an existing engine (later decision) | 7+ |
+| Sound, volume mixer | HDA audio + mixer; **The Bard** | 8 |
+| USB, printers, game controllers | xHCI + HID; printing much later | 8+ |
+| Photos, Media Player, Clock, Notepad, Mail | Lanternlight, Moving Pictures, Hourglass, Chronicle, Ravenpost | 6+ |
+| Microsoft Store | **The Market** (package manager) | 6+ |
+| Windows Update | signed updates | 9 |
+| Windows Security, firewall, BitLocker | permissions, sandboxing, firewall, disk encryption | 9 |
+| Sleep / hibernate, battery | ACPI power management | 8+ |
+| OneDrive, Copilot, Phone Link | cloud/AI features — much later, after networking | 9+ |
+
