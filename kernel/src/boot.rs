@@ -4,6 +4,7 @@
 
 use limine::request::{
     BootloaderInfoRequest, ExecutableAddressRequest, FramebufferRequest, HhdmRequest, MemmapRequest,
+    ModulesRequest,
 };
 use limine::{BaseRevision, RequestsEndMarker, RequestsStartMarker};
 
@@ -36,6 +37,21 @@ pub static HHDM: HhdmRequest = HhdmRequest::new();
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static EXECUTABLE_ADDRESS: ExecutableAddressRequest = ExecutableAddressRequest::new();
+
+/// Files loaded next to the kernel: the user programs (until there is a file system).
+#[used]
+#[unsafe(link_section = ".limine_requests")]
+static MODULES: ModulesRequest = ModulesRequest::new();
+
+/// All boot modules: file name (without folder) and contents.
+pub fn modules() -> impl Iterator<Item = (&'static str, &'static [u8])> {
+    let files = MODULES.response().map_or(&[][..], |r| r.modules());
+    files.iter().map(|f| (f.path().rsplit('/').next().unwrap_or(""), f.data()))
+}
+
+pub fn module(name: &str) -> Option<&'static [u8]> {
+    modules().find(|(n, _)| *n == name).map(|(_, data)| data)
+}
 
 #[used]
 #[unsafe(link_section = ".limine_requests_end")]

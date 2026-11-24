@@ -144,6 +144,11 @@ extern "C" fn kmain_stage2() -> ! {
         kprintln!("[hydrogen] sched: preemption on ({} ms time slices)", 1000 / time::HZ);
         selftest::preemption();
         selftest::user();
+        kprintln!("[hydrogen] boot modules: {} programs", boot::modules().count());
+        for (name, data) in boot::modules() {
+            kprintln!("[hydrogen]   {} ({} bytes)", name, data.len());
+        }
+        selftest::elf();
     } else {
         kprintln!("[hydrogen] sched: no timer, so no preemption; thread checks FAILED (not run)");
     }

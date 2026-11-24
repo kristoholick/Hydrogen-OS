@@ -1,0 +1,8 @@
+[package]
+name = "hydrogen-elf"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Reads ELF64 program files (untrusted input) for Hydrogen's loader. Unit-tested on the host."
+
+[dependencies]

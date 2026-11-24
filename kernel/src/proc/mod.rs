@@ -3,13 +3,14 @@
 //! A process has exactly one thread, and its number (pid) is that thread's id. The thread owns
 //! the process; when it has exited, the next thread to run frees both (see `sched::reap`).
 
-use crate::arch::x86_64::space::{Access, AddressSpace, MapError};
+use crate::arch::x86_64::space::{Access, AddressSpace, MapError, USER_END, USER_START};
 use crate::arch::x86_64::syscall::enter_user;
 use crate::fmtbuf::FmtBuf;
 use crate::sync::IrqMutex;
 use crate::{kprintln, sched, time};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
+use hydrogen_elf::{Limits, Program};
 use hydrogen_mm::PAGE_SIZE;
 
 pub type Pid = sched::ThreadId;
@@ -19,6 +20,15 @@ pub type Name = FmtBuf<32>;
 const CODE_BASE: u64 = 0x40_0000;
 const STACK_BASE: u64 = 0x7fff_ffe0_0000; // the page below stays unmapped: guard page
 const STACK_SIZE: u64 = 64 * 1024;
+
+/// What a program file may ask for. It must stay below the stack and its guard page.
+const LIMITS: Limits = Limits {
+    machine: hydrogen_elf::X86_64,
+    start: USER_START,
+    end: STACK_BASE - PAGE_SIZE as u64,
+    max_memory: 64 * 1024 * 1024,
+};
+const _: () = assert!(STACK_BASE + STACK_SIZE <= USER_END);
 
 pub struct Process {
     pub name: Name,
@@ -33,11 +43,23 @@ pub enum ExitStatus {
     Killed(&'static str),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SpawnError {
+    File(hydrogen_elf::Error),
+    Memory(MapError),
+}
+
+impl From<MapError> for SpawnError {
+    fn from(e: MapError) -> Self {
+        Self::Memory(e)
+    }
+}
+
 /// How finished processes ended, until somebody `wait`s for them.
 static EXITS: IrqMutex<BTreeMap<Pid, ExitStatus>> = IrqMutex::new(BTreeMap::new());
 
 /// Start a program given as plain machine code (runs from its first byte).
-pub fn spawn_flat(name: &str, code: &[u8]) -> Result<Pid, MapError> {
+pub fn spawn_flat(name: &str, code: &[u8]) -> Result<Pid, SpawnError> {
     let mut space = AddressSpace::new().ok_or(MapError::OutOfMemory)?;
     for v in (CODE_BASE..CODE_BASE + code.len() as u64).step_by(PAGE_SIZE) {
         space.map(v, Access { write: false, exec: true })?;
@@ -46,7 +68,20 @@ pub fn spawn_flat(name: &str, code: &[u8]) -> Result<Pid, MapError> {
     start(name, space, CODE_BASE)
 }
 
-fn start(name: &str, mut space: AddressSpace, entry: u64) -> Result<Pid, MapError> {
+/// Start a program from an ELF file. The file is untrusted.
+pub fn spawn_elf(name: &str, file: &[u8]) -> Result<Pid, SpawnError> {
+    let program = Program::parse(file, &LIMITS).map_err(SpawnError::File)?;
+    let mut space = AddressSpace::new().ok_or(MapError::OutOfMemory)?;
+    for s in program.segments() {
+        for v in s.pages().step_by(PAGE_SIZE) {
+            space.map(v, Access { write: s.write, exec: s.exec })?;
+        }
+        space.fill(s.addr, s.data)?;
+    }
+    start(name, space, program.entry)
+}
+
+fn start(name: &str, mut space: AddressSpace, entry: u64) -> Result<Pid, SpawnError> {
     for v in (STACK_BASE..STACK_BASE + STACK_SIZE).step_by(PAGE_SIZE) {
         space.map(v, Access { write: true, exec: false })?;
     }

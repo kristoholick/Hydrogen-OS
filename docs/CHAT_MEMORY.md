@@ -136,11 +136,15 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
     Must be added with multi-core support.
   - All 256 upper top-level page-table entries are filled at boot (1 MiB) so every process shares
     later kernel mappings.
-  - 16 deliberate breakages: 14 caught by `make test-user` (3 only after improving the tests), one
+  - 14 deliberate breakages: 12 caught by `make test-user` (2 only after improving the tests), one
     changes nothing (rbx, saved by the compiler too), and one — interrupts on just before `sysret` — is a
     one-instruction window only caught by a one-off 30 s system call storm (normal test: 500 ms).
   - Known limits: a process has one thread; exit codes of processes nobody waits for are kept
     forever; no Meltdown/Spectre mitigations; freeing a process runs with interrupts off.
+- **3.4 done (2026-11-25):** ELF loader + user programs. `userspace/` is its own Cargo workspace, built from
+  inside that folder (other linker script and code model). New program: add a file in
+  `userspace/apps/src/bin/`, its name in the Makefile's `APPS` and a `module_path` line in `boot/limine.conf`.
+  15 deliberate breakages of the parser: 13 caught, 2 change nothing (a later bounds check refuses the file too).
 - Lesson: passing `$?`/`|`/quotes through `tools/wsl.ps1` gets mangled by PowerShell; put
   multi-part commands in a script (e.g. `build/run-test-all.sh`, not committed) and run that.
 

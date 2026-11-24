@@ -20,6 +20,7 @@ fault-thread-stack = []
 
 [dependencies]
 hydrogen-mm = { path = "../crates/hydrogen-mm" }
+hydrogen-elf = { path = "../crates/hydrogen-elf" }
 x86_64 = { version = "0.15", default-features = false, features = ["instructions", "abi_x86_interrupt"] }
 limine = "0.6.5"
 spin = "0.12.3"

@@ -1,6 +1,7 @@
 //! Boot-time self-checks. Each one either logs "ok" or panics with what went wrong,
 //! which the headless tests turn into a pass/fail.
 
+mod elf;
 mod user;
 
 use crate::arch::x86_64::rtc;
@@ -131,6 +132,11 @@ pub fn preemption() {
 /// First programs outside the kernel (Phase 3.3).
 pub fn user() {
     user::run();
+}
+
+/// Program files shipped as boot modules (Phase 3.4).
+pub fn elf() {
+    elf::run();
 }
 
 /// Wait (asleep) until the threads are gone.

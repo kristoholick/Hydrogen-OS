@@ -59,7 +59,10 @@ Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF lo
 - [x] 3.3 Ring 3 + syscalls — page tables per process, `syscall`/`sysret`, 6 system calls, SMEP/SMAP/UMIP
   on, x87/SSE off for programs until their registers are saved per thread; `make test-user`.
   Passed 2026-11-25 on the Ryzen (10/10 boots with KVM, 5/5 without). Not yet run on the Dell.
-- [ ] 3.4 ELF loader · [ ] 3.5 Fault isolation
+- [x] 3.4 ELF loader — own parser `crates/hydrogen-elf` (no `unsafe`, 12 host tests incl. 300,000 randomly
+  damaged files), programs in `userspace/` shipped as Limine modules; `make test-elf` (hello-a and hello-b
+  interleave). Passed 2026-11-25 on the Ryzen (10/10 boots with KVM, 5/5 without). Not yet run on the Dell.
+- [ ] 3.5 Fault isolation
 
 ## Phase 4 — Hardware
 PCIe enumeration, uACPI, VirtIO (blk, net, input, gpu), PS/2 keyboard/mouse, AHCI.

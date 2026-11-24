@@ -6,6 +6,10 @@ SHELL := /bin/bash
 BUILD        := build
 KERNEL_ELF   := target/x86_64-unknown-none/release/hydrogen-kernel
 ISO          := $(BUILD)/hydrogen.iso
+# User programs (userspace/apps/src/bin/*.rs), shipped in the ISO as boot modules. Every program
+# here must also be listed in boot/limine.conf.
+APPS         := hello-a hello-b memory-check
+APPS_DIR     := target/userspace/x86_64-unknown-none/release
 # Test variants: each is the normal kernel plus one Cargo feature, built in its own target dir.
 VARIANTS     := panic-test fault-pagefault fault-stack fault-int3 fault-thread-stack
 
@@ -24,7 +28,7 @@ QEMU_BASE  = qemu-system-x86_64 $(ACCEL) -M q35 -m 512M -no-reboot \
              -drive if=pflash,unit=0,format=raw,file=$(OVMF_CODE),readonly=on \
              -drive if=pflash,unit=1,format=raw,file=$(BUILD)/ovmf-vars.fd
 
-.PHONY: all kernel iso run debug unit test test-threads test-preempt test-user test-panic test-fault-pagefault test-fault-stack \
+.PHONY: all kernel apps iso run debug unit test test-threads test-preempt test-user test-elf test-panic test-fault-pagefault test-fault-stack \
         test-fault-int3 test-fault-thread-stack test-all limine clean distclean FORCE
 
 all: iso
@@ -44,11 +48,16 @@ $(LIMINE_DIR)/.verified:
 kernel:
 	cargo build --release -p hydrogen-kernel
 
+# ---------- user programs (their own workspace, see userspace/Cargo.toml) ----------
+apps:
+	cd userspace && cargo build --release --target-dir ../target/userspace
+
 # ---------- ISO (UEFI boot only) ----------
 # $(1) kernel ELF, $(2) output ISO, $(3) staging dir
 define make_iso
 	@rm -rf $(3)
-	@mkdir -p $(3)/boot/limine $(3)/EFI/BOOT
+	@mkdir -p $(3)/boot/limine $(3)/boot/apps $(3)/EFI/BOOT
+	@cp $(addprefix $(APPS_DIR)/,$(APPS)) $(3)/boot/apps/
 	@cp $(1) $(3)/boot/hydrogen-kernel
 	@cp boot/limine.conf $(LIMINE_DIR)/limine-uefi-cd.bin $(3)/boot/limine/
 	@cp $(LIMINE_DIR)/BOOTX64.EFI $(3)/EFI/BOOT/
@@ -58,11 +67,11 @@ define make_iso
 	@echo "[make] built $(2)"
 endef
 
-iso: limine kernel
+iso: limine kernel apps
 	$(call make_iso,$(KERNEL_ELF),$(ISO),$(BUILD)/iso_root)
 
 # build/hydrogen-<variant>.iso, e.g. build/hydrogen-fault-stack.iso
-$(BUILD)/hydrogen-%.iso: limine FORCE
+$(BUILD)/hydrogen-%.iso: limine apps FORCE
 	cargo build --release -p hydrogen-kernel --features $* --target-dir target/variants/$*
 	$(call make_iso,target/variants/$*/x86_64-unknown-none/release/hydrogen-kernel,$@,$(BUILD)/iso_root_$*)
 
@@ -83,7 +92,7 @@ debug: iso $(BUILD)/ovmf-vars.fd
 
 # ---------- automated tests (headless, time-limited) ----------
 unit:
-	cargo test -p hydrogen-mm --target x86_64-unknown-linux-gnu
+	cargo test -p hydrogen-mm -p hydrogen-elf --target x86_64-unknown-linux-gnu
 
 test: iso
 	@bash tools/test-boot.sh $(ISO) $(BUILD)/test \
@@ -110,6 +119,14 @@ test-preempt: iso
 test-user: iso
 	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-user 		"user mode: syscall door open; SMEP on, SMAP on" "] hello from ring 3" "exited with code 0" 		"hello ran in ring 3, exit code 0" "registers intact across system calls" 		"500 ms of nothing but system calls" "each saw only its own data" "50 programs started and finished, no memory leaked" "phase 2 boot complete"
 
+# Phase 3.4: two separate program files are loaded and take turns; the loader gets memory right.
+test-elf: iso
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-elf \
+		"boot modules: 3 programs" "] A5" "] B5" "constants, variables and stack are fine" \
+		"selftest elf: ok (hello-a and hello-b" "selftest elf: ok (memory-check" \
+		"selftest elf: ok (damaged program files refused" "selftest elf: ok (no memory leaked" "phase 2 boot complete"
+	@bash tools/check-interleave.sh $(BUILD)/test-elf/serial.log
+
 test-panic: $(BUILD)/hydrogen-panic-test.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-panic "PANIC at kernel/src/main.rs"
 
@@ -126,7 +143,7 @@ test-fault-int3: $(BUILD)/hydrogen-fault-int3.iso
 test-fault-thread-stack: $(BUILD)/hydrogen-fault-thread-stack.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-fault-thread-stack "EXCEPTION: DOUBLE FAULT" "thread stack overflow"
 
-test-all: unit test test-threads test-preempt test-user test-panic test-fault-pagefault test-fault-stack test-fault-int3 \
+test-all: unit test test-threads test-preempt test-user test-elf test-panic test-fault-pagefault test-fault-stack test-fault-int3 \
           test-fault-thread-stack
 	@echo "[make] ALL TESTS PASSED"
 
