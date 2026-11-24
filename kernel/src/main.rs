@@ -125,10 +125,17 @@ extern "C" fn kmain_stage2() -> ! {
         }
     };
 
-    // --- kernel threads (cooperative until step 3.2) ---
+    // --- threads: first cooperative (the exact-order check needs that), then preemptive ---
     sched::init();
-    kprintln!("[hydrogen] sched: boot path is now thread 0 (kmain)");
-    selftest::threads();
+    kprintln!("[hydrogen] sched: boot path is now thread 0 (kmain), idle thread is 1");
+    if x86_64::instructions::interrupts::are_enabled() {
+        selftest::threads();
+        sched::enable_preemption();
+        kprintln!("[hydrogen] sched: preemption on ({} ms time slices)", 1000 / time::HZ);
+        selftest::preemption();
+    } else {
+        kprintln!("[hydrogen] sched: no timer, so no preemption; thread checks FAILED (not run)");
+    }
 
     // --- deliberate fault tests (only in their own test builds) ---
     #[cfg(feature = "fault-int3")]
@@ -149,7 +156,7 @@ extern "C" fn kmain_stage2() -> ! {
     #[allow(unreachable_code)]
     {
         kprintln!("[hydrogen] phase 2 boot complete; idling with timer running");
-        arch::idle_forever()
+        sched::exit() // from here the idle thread runs whenever nobody else needs the CPU
     }
 }
 

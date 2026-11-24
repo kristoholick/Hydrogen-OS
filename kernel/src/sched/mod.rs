@@ -1,66 +1,113 @@
-//! Kernel threads (Phase 3.1): cooperative for now — a thread runs until it calls `yield_now`
-//! or `exit`. The timer takes over the switching in step 3.2.
+//! Kernel threads and the scheduler (Phase 3.1 + 3.2): one core, round-robin, 10 ms slices.
 //!
-//! Every thread has its own 16 KiB kernel stack with an unmapped guard page below it, in the
-//! thread-stack region (see `mm::vmm::THREAD_STACKS`). The boot path becomes thread 0 ("kmain")
-//! and keeps the 64 KiB boot stack.
+//! Every thread has its own 16 KiB kernel stack with an unmapped guard page below it (see
+//! `stack`). The boot path becomes thread 0 ("kmain") and keeps the 64 KiB boot stack.
+//! Thread 1 is the idle thread: it runs only when nobody else wants the CPU.
 //!
 //! Switching: `switch_context` pushes the callee-saved registers on the old stack, stores the
 //! stack pointer in the old thread, loads the new thread's stack pointer and pops its registers.
-//! Everything else (caller-saved registers, RIP) is already on the stack because the switch is
-//! an ordinary function call. No SSE/FPU state exists yet (kernel is built without SSE).
+//! Everything else is already on the old stack: caller-saved registers because the switch is an
+//! ordinary function call, and — when the timer forces it — the whole interrupted state, saved
+//! by the interrupt entry. No SSE/FPU state exists yet (kernel is built without SSE).
+//!
+//! Rules that keep this sound on one core:
+//! - every switch happens with interrupts off, and the thread that comes back restores its own
+//!   interrupt flag;
+//! - `IrqMutex` masks interrupts, so a thread is never preempted while it holds a lock;
+//! - `yield_now`/`sleep_ms` refuse to run with interrupts off, i.e. while a lock is held.
+//!
+//! Known limit: woken sleepers go to the front of the queue so they wake on time. A thread that
+//! keeps sleeping briefly and then burning its whole slice could therefore crowd out others;
+//! real priorities come later.
 
 mod stack;
 
 use crate::sync::IrqMutex;
+use crate::time;
 use alloc::boxed::Box;
-use alloc::vec::Vec;
+use alloc::collections::{BTreeMap, VecDeque};
+use core::sync::atomic::{AtomicBool, Ordering};
 use x86_64::instructions::interrupts;
 
+pub use stack::is_guard as is_thread_stack_guard;
+
+pub type ThreadId = u64;
+pub const IDLE: ThreadId = 1;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum State {
+enum State {
     Ready,
     Running,
+    /// Wakes at this timer tick.
+    Sleeping(u64),
     Dead,
 }
 
-/// A thread's id is its index in `Scheduler::threads`.
-pub struct Thread {
+struct Thread {
     #[allow(dead_code)] // shown by diagnostics / the task manager later
     name: &'static str,
     state: State,
     /// Saved stack pointer while the thread is not running.
     rsp: u64,
     entry: Option<fn()>,
-    /// `None` for thread 0, which runs on the boot stack.
-    #[allow(dead_code)] // freed by the reaper in step 3.2
-    stack: Option<stack::ThreadStack>,
+    /// Timer ticks that arrived while this thread was running.
+    cpu_ticks: u64,
+    /// Freed when the thread is reaped. `None` for thread 0, which runs on the boot stack.
+    _stack: Option<stack::ThreadStack>,
 }
 
 struct Scheduler {
-    /// Boxed so each thread's `rsp` field keeps its address while the Vec grows.
-    threads: Vec<Box<Thread>>,
-    current: usize,
+    /// Boxed so each thread's `rsp` keeps its address while the map changes.
+    threads: BTreeMap<ThreadId, Box<Thread>>,
+    /// Threads waiting for the CPU. Never contains the running or the idle thread.
+    ready: VecDeque<ThreadId>,
+    current: ThreadId,
+    next_id: ThreadId,
+    /// Exited thread whose stack is freed by whoever runs next (it cannot free its own).
+    zombie: Option<ThreadId>,
 }
 
 static SCHED: IrqMutex<Option<Scheduler>> = IrqMutex::new(None);
+static PREEMPT: AtomicBool = AtomicBool::new(false);
 
-/// Turn the code that is running right now into thread 0.
+/// Turn the code that is running right now into thread 0 and create the idle thread.
 pub fn init() {
-    let boot = Box::new(Thread { name: "kmain", state: State::Running, rsp: 0, entry: None, stack: None });
-    *SCHED.lock() = Some(Scheduler { threads: alloc::vec![boot], current: 0 });
+    let boot = Box::new(Thread {
+        name: "kmain", state: State::Running, rsp: 0, entry: None, cpu_ticks: 0, _stack: None,
+    });
+    *SCHED.lock() = Some(Scheduler {
+        threads: BTreeMap::from([(0, boot)]),
+        ready: VecDeque::new(),
+        current: 0,
+        next_id: IDLE,
+        zombie: None,
+    });
+    let id = add_thread("idle", idle, false);
+    assert_eq!(id, IDLE);
 }
 
-/// Create a thread that will run `entry` the next time the scheduler picks it.
-pub fn spawn(name: &'static str, entry: fn()) -> usize {
+fn idle() {
+    crate::arch::idle_forever()
+}
+
+/// From now on the timer switches threads. Needs a running timer.
+pub fn enable_preemption() {
+    PREEMPT.store(true, Ordering::Relaxed);
+}
+
+/// Create a thread that will run `entry`; it joins the back of the queue.
+pub fn spawn(name: &'static str, entry: fn()) -> ThreadId {
+    add_thread(name, entry, true)
+}
+
+fn add_thread(name: &'static str, entry: fn(), queue: bool) -> ThreadId {
     let stack = stack::ThreadStack::new();
     // Initial stack, from the top down, so the first `switch_context` into it "returns" into
     // `thread_start` with the alignment a normal call would leave (rsp % 16 == 8 at entry):
-    //   [top-8]  0                 fake return address of thread_start (never used)
-    //   [top-16] thread_start      popped by `ret`
-    //   [top-64 .. top-24]         rbp, rbx, r12..r15 = 0, popped by switch_context
-    let top = stack.top();
-    let rsp = top - 64;
+    //   [top-8]            0               fake return address of thread_start (never used)
+    //   [top-16]           thread_start    popped by `ret`
+    //   [top-64 .. top-16] rbp, rbx, r12..r15 = 0, popped by switch_context
+    let rsp = stack.top() - 64;
     // SAFETY: the 64 bytes below `top` lie inside the freshly mapped, writable stack and
     // nothing else references them yet.
     unsafe {
@@ -71,68 +118,150 @@ pub fn spawn(name: &'static str, entry: fn()) -> usize {
         p.add(6).write(thread_start as extern "C" fn() -> ! as usize as u64);
         p.add(7).write(0);
     }
+    let thread = Box::new(Thread {
+        name, state: State::Ready, rsp, entry: Some(entry), cpu_ticks: 0, _stack: Some(stack),
+    });
+
     let mut g = SCHED.lock();
     let s = g.as_mut().expect("scheduler not initialised");
-    let id = s.threads.len();
-    s.threads.push(Box::new(Thread { name, state: State::Ready, rsp, entry: Some(entry), stack: Some(stack) }));
+    let id = s.next_id;
+    s.next_id += 1;
+    s.threads.insert(id, thread);
+    // Room for every thread at once, so the timer interrupt never has to grow the queue.
+    s.ready.reserve(s.threads.len());
+    if queue {
+        s.ready.push_back(id);
+    }
     id
 }
 
-/// First code every new thread runs (reached by `ret` from `switch_context`).
+/// First code every new thread runs (reached by `ret` from `switch_context`, interrupts off).
 extern "C" fn thread_start() -> ! {
-    // We arrive with interrupts off (switches happen with them masked).
+    reap();
     interrupts::enable();
     let entry = {
         let g = SCHED.lock();
-        let s = g.as_ref().unwrap();
-        s.threads[s.current].entry.expect("thread without entry")
+        let s = g.as_ref().expect("scheduler not initialised");
+        s.threads[&s.current].entry.expect("thread without entry")
     };
     entry();
     exit()
 }
 
-/// Give the CPU to the next ready thread (round-robin). Returns when this thread is picked again.
-/// If no other thread is ready, returns immediately.
+/// Let the other ready threads run first. Returns when this thread's turn comes again, or
+/// immediately if nobody else is ready.
 pub fn yield_now() {
-    interrupts::without_interrupts(|| switch_away(State::Ready));
+    assert!(interrupts::are_enabled(), "yield with interrupts off (is a lock held?)");
+    interrupts::without_interrupts(|| schedule(State::Ready));
 }
 
-/// End the current thread. Its stack is not reclaimed yet (step 3.2 adds the reaper).
+/// Sleep for at least `ms` milliseconds; other threads run meanwhile. Returns how many timer
+/// ticks later than planned the thread got the CPU back (0 = on time).
+pub fn sleep_ms(ms: u64) -> u64 {
+    assert!(interrupts::are_enabled(), "sleep with interrupts off (is a lock held?)");
+    assert!(PREEMPT.load(Ordering::Relaxed), "sleep before preemption is on: nothing would wake us");
+    let tick_ms = 1000 / time::HZ as u64;
+    interrupts::without_interrupts(|| {
+        // +1 because the current tick is already partly over: never wake early.
+        let until = time::ticks().saturating_add(ms.div_ceil(tick_ms)).saturating_add(1);
+        schedule(State::Sleeping(until));
+        time::ticks() - until
+    })
+}
+
+/// End the current thread. The next thread to run frees its stack.
 pub fn exit() -> ! {
     interrupts::disable();
-    switch_away(State::Dead);
+    schedule(State::Dead);
     unreachable!("a dead thread was scheduled again");
 }
 
-/// Must run with interrupts off. `now` is the state the current thread is left in.
-fn switch_away(now: State) {
+/// Called by the timer interrupt after it has acknowledged the interrupt (interrupts off).
+pub fn on_tick() {
+    if !PREEMPT.load(Ordering::Relaxed) {
+        return;
+    }
+    {
+        let mut g = SCHED.lock();
+        let Some(s) = g.as_mut() else { return };
+        let now = time::ticks();
+        if let Some(t) = s.threads.get_mut(&s.current) {
+            t.cpu_ticks += 1;
+        }
+        for (&id, t) in s.threads.iter_mut() {
+            if let State::Sleeping(until) = t.state
+                && until <= now
+            {
+                t.state = State::Ready;
+                s.ready.push_front(id);
+            }
+        }
+    }
+    schedule(State::Ready);
+}
+
+/// Switch to the next thread, leaving the current one in state `leave`. Returns when the
+/// current thread is picked again. Must run with interrupts off and no lock held.
+fn schedule(leave: State) {
     let (old_rsp, new_rsp) = {
         let mut g = SCHED.lock();
         let s = g.as_mut().expect("scheduler not initialised");
-        let n = s.threads.len();
         let cur = s.current;
-        let Some(next) = (1..=n).map(|k| (cur + k) % n).find(|&i| i != cur && s.threads[i].state == State::Ready) else {
-            assert!(now != State::Dead, "last thread exited");
-            return; // nobody else to run
+        assert!(cur != IDLE || leave == State::Ready, "the idle thread must not sleep or exit");
+        let next = match s.ready.pop_front() {
+            Some(id) => id,
+            None if leave == State::Ready => return, // nobody else wants the CPU: carry on
+            None => IDLE,
         };
-        s.threads[cur].state = now;
-        s.threads[next].state = State::Running;
+        match leave {
+            State::Ready if cur != IDLE => s.ready.push_back(cur),
+            State::Dead => s.zombie = Some(cur),
+            _ => {}
+        }
         s.current = next;
-        (&mut s.threads[cur].rsp as *mut u64, s.threads[next].rsp)
+        let old = s.threads.get_mut(&cur).expect("current thread missing");
+        old.state = leave;
+        let old_rsp = &raw mut old.rsp;
+        let new = s.threads.get_mut(&next).expect("next thread missing");
+        new.state = State::Running;
+        (old_rsp, new.rsp)
         // lock released here; interrupts stay off until the switch is done
     };
-    // SAFETY: `old_rsp` points into a boxed Thread that is never freed while it can be
-    // switched back to; `new_rsp` was saved by `switch_context` (or built by `spawn`) for a
-    // thread that is not running. Interrupts are off, so nothing runs between the two halves.
+    // SAFETY: `old_rsp` points into a boxed Thread that is only freed by `reap`, i.e. after
+    // this switch has finished; `new_rsp` was saved by `switch_context` (or built by
+    // `add_thread`) for a thread that is not running. Interrupts are off and there is one
+    // core, so nothing runs between releasing the lock and the switch.
     unsafe { switch_context(old_rsp, new_rsp) }
+    reap();
 }
 
-pub fn current_id() -> usize {
+/// Free the thread that just exited, if any. Runs first thing after every switch, interrupts
+/// off, on the new thread's stack — so the dead thread's stack is no longer in use.
+fn reap() {
+    let dead = {
+        let mut g = SCHED.lock();
+        let s = g.as_mut().expect("scheduler not initialised");
+        s.zombie.take().and_then(|id| s.threads.remove(&id))
+    };
+    drop(dead); // unmaps the stack; done after releasing the scheduler lock
+}
+
+pub fn current_id() -> ThreadId {
     SCHED.lock().as_ref().map_or(0, |s| s.current)
 }
 
-pub fn state_of(id: usize) -> Option<State> {
-    SCHED.lock().as_ref().and_then(|s| s.threads.get(id).map(|t| t.state))
+/// Has the thread not been reaped yet?
+pub fn is_alive(id: ThreadId) -> bool {
+    SCHED.lock().as_ref().is_some_and(|s| s.threads.contains_key(&id))
+}
+
+/// Timer ticks the thread has spent running; `None` once it is gone.
+pub fn cpu_ticks(id: ThreadId) -> Option<u64> {
+    SCHED.lock().as_ref().and_then(|s| s.threads.get(&id).map(|t| t.cpu_ticks))
+}
+
+pub fn thread_count() -> usize {
+    SCHED.lock().as_ref().map_or(0, |s| s.threads.len())
 }
 
 unsafe extern "C" {
@@ -159,5 +288,3 @@ core::arch::global_asm!(
     "    pop rbp",
     "    ret",
 );
-
-pub use stack::is_guard as is_thread_stack_guard;

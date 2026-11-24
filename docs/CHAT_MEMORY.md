@@ -117,8 +117,18 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
 - **3.0 done:** everything renamed SIGIL → Hydrogen (commit `3c7dc5f`).
 - **3.1 done:** kernel threads in `kernel/src/sched/` — thread 0 is the boot path; new threads
   get 16 KiB stacks in slots at `0xffff_fd00_0000_0000` (guard page each); context switch is
-  ~15 lines of asm; switching is still cooperative (timer takes over in 3.2). Thread stacks are
-  not freed yet (3.2 adds the reaper). `make test-all` = 13 unit tests + 7 QEMU boots, all pass.
+  ~15 lines of asm; switching was cooperative in this step. `make test-all` = 13 unit tests + 7 QEMU boots, all pass.
+- **3.2 done:** the timer preempts threads (10 ms round-robin); `sleep_ms` never wakes early and
+  was at most 1 tick late with 3 busy rivals; idle thread is id 1; exited threads are freed by the
+  next thread to run (`reap`), stack slots reused; the boot thread exits after boot.
+  - Found while testing: printing a whole line with interrupts off lost timer ticks (25-43 ms per
+    line here, because the QEMU log sits on slow `/mnt/c`; ~17 ms is the calculated figure for real
+    38400-baud hardware). Serial output now goes through a ring, 4 bytes per lock.
+  - Without KVM, QEMU's own timer stalls on `/mnt/c` logging, so `test-boot.sh` logs to `/tmp` then.
+  - The tests were checked by breaking the kernel on purpose (8 ways); all 8 are caught.
+  - Known limits: woken sleepers jump the queue (no priorities yet); drawing to the screen still
+    holds a lock with interrupts off (not measured; matters in Phase 6); thread 0's boot stack is
+    not freed; not run on the Dell yet.
 - Lesson: passing `$?`/`|`/quotes through `tools/wsl.ps1` gets mangled by PowerShell; put
   multi-part commands in a script (e.g. `build/run-test-all.sh`, not committed) and run that.
 

@@ -1,19 +1,30 @@
 //! 16550 UART on COM1 — the kernel's first and most reliable log output.
+//!
+//! The port is slow (65 characters take about 17 ms at 38400 baud), so text first goes into a ring
+//! and is then sent a few bytes at a time, with the lock released in between. Sending a whole
+//! line under the lock kept interrupts off long enough to lose timer ticks. Each line enters
+//! the ring in one piece, so lines from different threads never mix.
 
 use crate::arch::x86_64::io::{inb, outb};
 use crate::sync::IrqMutex;
 use core::fmt;
 
 const COM1: u16 = 0x3F8;
+const RING: usize = 4096;
+/// Bytes sent per lock: keeps interrupts off for about 1 ms at 38400 baud.
+const CHUNK: usize = 4;
 
 pub struct SerialPort {
     base: u16,
     ready: bool,
+    ring: [u8; RING],
+    head: usize, // next byte to send
+    len: usize,  // bytes waiting
 }
 
 impl SerialPort {
     const fn new(base: u16) -> Self {
-        Self { base, ready: false }
+        Self { base, ready: false, ring: [0; RING], head: 0, len: 0 }
     }
 
     fn init(&mut self) {
@@ -32,10 +43,28 @@ impl SerialPort {
         self.ready = true;
     }
 
-    fn write_byte(&mut self, byte: u8) {
+    fn queue_byte(&mut self, byte: u8) {
         if !self.ready {
             return;
         }
+        if self.len == RING {
+            self.send_chunk(); // full: make room rather than lose log text
+        }
+        self.ring[(self.head + self.len) % RING] = byte;
+        self.len += 1;
+    }
+
+    /// Send up to `CHUNK` waiting bytes. Returns whether more are waiting.
+    fn send_chunk(&mut self) -> bool {
+        for _ in 0..CHUNK.min(self.len) {
+            self.send_byte(self.ring[self.head]);
+            self.head = (self.head + 1) % RING;
+            self.len -= 1;
+        }
+        self.len > 0
+    }
+
+    fn send_byte(&mut self, byte: u8) {
         // SAFETY: same port ownership as in `init`. Line Status bit 5 = transmit buffer empty.
         unsafe {
             let mut spins = 0u32;
@@ -51,9 +80,9 @@ impl fmt::Write for SerialPort {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for b in s.bytes() {
             if b == b'\n' {
-                self.write_byte(b'\r');
+                self.queue_byte(b'\r');
             }
-            self.write_byte(b);
+            self.queue_byte(b);
         }
         Ok(())
     }
@@ -69,15 +98,19 @@ pub fn init() {
 pub fn _print(args: fmt::Arguments) {
     use fmt::Write;
     let _ = SERIAL.lock().write_fmt(args);
+    while SERIAL.lock().send_chunk() {} // the lock is free between chunks
 }
 
-/// Panic-path print: takes the port even if a panicking context still holds the lock.
+/// Panic-path print: takes the port even if a panicking context still holds the lock, and
+/// sends everything that was still waiting first.
 pub fn print_unlocked(args: fmt::Arguments) {
     use fmt::Write;
     // SAFETY: called only from the panic handler after interrupts are masked on a
     // single core, so no other code can be using the port concurrently.
     unsafe { SERIAL.force_unlock() };
-    let _ = SERIAL.lock().write_fmt(args);
+    let mut port = SERIAL.lock();
+    let _ = port.write_fmt(args);
+    while port.send_chunk() {}
 }
 
 #[macro_export]

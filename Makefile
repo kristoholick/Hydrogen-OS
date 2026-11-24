@@ -24,7 +24,7 @@ QEMU_BASE  = qemu-system-x86_64 $(ACCEL) -M q35 -m 512M -no-reboot \
              -drive if=pflash,unit=0,format=raw,file=$(OVMF_CODE),readonly=on \
              -drive if=pflash,unit=1,format=raw,file=$(BUILD)/ovmf-vars.fd
 
-.PHONY: all kernel iso run debug unit test test-threads test-panic test-fault-pagefault test-fault-stack \
+.PHONY: all kernel iso run debug unit test test-threads test-preempt test-panic test-fault-pagefault test-fault-stack \
         test-fault-int3 test-fault-thread-stack test-all limine clean distclean FORCE
 
 all: iso
@@ -94,8 +94,17 @@ test: iso
 # Phase 3.1: two kernel threads alternate A1 B1 A2 B2 A3 B3 (the kernel checks the exact order).
 test-threads: iso
 	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-threads \
-		"sched: boot path is now thread 0" "thread A (id 1): step 1" "thread B (id 2): step 1" \
-		"thread A (id 1): step 3" "thread B (id 2): step 3" "selftest threads: ok (A1 B1 A2 B2 A3 B3;"
+		"sched: boot path is now thread 0" "thread A (id 2): step 1" "thread B (id 3): step 1" \
+		"thread A (id 2): step 3" "thread B (id 3): step 3" "selftest threads: ok (A1 B1 A2 B2 A3 B3;"
+
+# Phase 3.2: the timer takes the CPU from endless loops, sleeps end on time, forced switches
+# corrupt nothing, finished threads leak nothing, the idle thread runs when all others sleep.
+test-preempt: iso
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-preempt \
+		"sched: preemption on (10 ms time slices)" "locks mask interrupts" \
+		"clock kept time while printing" "3 threads in endless loops got" \
+		"results under forced switches, 0 wrong" "50 threads started and finished, no memory leaked" \
+		"idle thread took" "phase 2 boot complete"
 
 test-panic: $(BUILD)/hydrogen-panic-test.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-panic "PANIC at kernel/src/main.rs"
@@ -113,7 +122,7 @@ test-fault-int3: $(BUILD)/hydrogen-fault-int3.iso
 test-fault-thread-stack: $(BUILD)/hydrogen-fault-thread-stack.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-fault-thread-stack "EXCEPTION: DOUBLE FAULT" "thread stack overflow"
 
-test-all: unit test test-threads test-panic test-fault-pagefault test-fault-stack test-fault-int3 \
+test-all: unit test test-threads test-preempt test-panic test-fault-pagefault test-fault-stack test-fault-int3 \
           test-fault-thread-stack
 	@echo "[make] ALL TESTS PASSED"
 

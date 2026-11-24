@@ -20,6 +20,10 @@ ACCEL="-accel tcg -cpu max"
 
 rm -rf "$OUT" && mkdir -p "$OUT"
 cp /usr/share/OVMF/OVMF_VARS_4M.fd "$OUT/ovmf-vars.fd"
+# QEMU writes the log byte by byte. On /mnt/c each byte takes ~0.4 ms. With KVM that is a useful
+# stand-in for a slow serial port; without it (TCG) it stalls QEMU's own timer, so log to /tmp.
+LOG="$OUT/serial.log"
+case "$ACCEL" in *tcg*) LOG=$(mktemp /tmp/hydrogen-serial-XXXXXX.log) ;; esac
 SOCK=$(mktemp -u /tmp/hydrogen-qemu-XXXXXX.sock)   # unix sockets cannot live on /mnt/c
 
 echo "[test] booting $ISO ($ACCEL), limit ${LIMIT}s"
@@ -27,7 +31,7 @@ timeout $((LIMIT + 10)) qemu-system-x86_64 $ACCEL -M q35 -m 512M -no-reboot \
   -drive if=pflash,unit=0,format=raw,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on \
   -drive if=pflash,unit=1,format=raw,file="$OUT/ovmf-vars.fd" \
   -cdrom "$ISO" \
-  -serial file:"$OUT/serial.log" \
+  -serial file:"$LOG" \
   -display none \
   -monitor unix:"$SOCK",server,nowait \
   -d cpu_reset,guest_errors -D "$OUT/qemu.log" &
@@ -36,7 +40,7 @@ QPID=$!
 # wait for the kernel to finish, panic, or the time limit
 status="timeout"
 for ((i = 0; i < LIMIT * 10; i++)); do
-  if grep -qE "boot complete|PANIC" "$OUT/serial.log" 2>/dev/null; then status="kernel-finished"; break; fi
+  if grep -qE "boot complete|PANIC" "$LOG" 2>/dev/null; then status="kernel-finished"; break; fi
   if ! kill -0 $QPID 2>/dev/null; then status="qemu-exited"; break; fi
   sleep 0.1
 done
@@ -49,6 +53,7 @@ if kill -0 $QPID 2>/dev/null; then
 fi
 wait $QPID 2>/dev/null
 rm -f "$SOCK"
+[ "$LOG" = "$OUT/serial.log" ] || { cp "$LOG" "$OUT/serial.log"; rm -f "$LOG"; }
 
 [ -f "$OUT/frame.ppm" ] && python3 "$(dirname "$0")/ppm2png.py" "$OUT/frame.ppm" "$OUT/frame.png" && rm -f "$OUT/frame.ppm"
 

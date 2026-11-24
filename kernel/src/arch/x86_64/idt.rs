@@ -129,7 +129,10 @@ extern "x86-interrupt" fn machine_check(f: InterruptStackFrame) -> ! {
 
 extern "x86-interrupt" fn timer_interrupt(_f: InterruptStackFrame) {
     crate::time::on_tick();
+    // Acknowledge first: the scheduler may switch to another thread, and without the EOI that
+    // thread would never see another timer interrupt.
     super::apic::eoi();
+    crate::sched::on_tick();
 }
 
 extern "x86-interrupt" fn spurious_interrupt(_f: InterruptStackFrame) {
