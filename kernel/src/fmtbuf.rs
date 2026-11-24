@@ -2,6 +2,7 @@
 
 use core::fmt;
 
+#[derive(Clone, Copy)]
 pub struct FmtBuf<const N: usize> {
     buf: [u8; N],
     len: usize,
@@ -15,6 +16,12 @@ impl<const N: usize> FmtBuf<N> {
     pub fn as_str(&self) -> &str {
         // Only whole UTF-8 strings are ever appended (truncation happens on char boundaries).
         core::str::from_utf8(&self.buf[..self.len]).unwrap_or("?")
+    }
+}
+
+impl<const N: usize> Default for FmtBuf<N> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

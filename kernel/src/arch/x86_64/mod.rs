@@ -6,3 +6,5 @@ pub mod idt;
 pub mod io;
 pub mod pic;
 pub mod rtc;
+pub mod space;
+pub mod syscall;

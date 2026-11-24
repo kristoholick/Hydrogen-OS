@@ -24,7 +24,7 @@ QEMU_BASE  = qemu-system-x86_64 $(ACCEL) -M q35 -m 512M -no-reboot \
              -drive if=pflash,unit=0,format=raw,file=$(OVMF_CODE),readonly=on \
              -drive if=pflash,unit=1,format=raw,file=$(BUILD)/ovmf-vars.fd
 
-.PHONY: all kernel iso run debug unit test test-threads test-preempt test-panic test-fault-pagefault test-fault-stack \
+.PHONY: all kernel iso run debug unit test test-threads test-preempt test-user test-panic test-fault-pagefault test-fault-stack \
         test-fault-int3 test-fault-thread-stack test-all limine clean distclean FORCE
 
 all: iso
@@ -106,6 +106,10 @@ test-preempt: iso
 		"results under forced switches, 0 wrong" "50 threads started and finished, no memory leaked" \
 		"idle thread took" "phase 2 boot complete"
 
+# Phase 3.3: programs in ring 3 with private memory, talking to the kernel through system calls.
+test-user: iso
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-user 		"user mode: syscall door open; SMEP on, SMAP on" "] hello from ring 3" "exited with code 0" 		"hello ran in ring 3, exit code 0" "registers intact across system calls" 		"500 ms of nothing but system calls" "each saw only its own data" "50 programs started and finished, no memory leaked" "phase 2 boot complete"
+
 test-panic: $(BUILD)/hydrogen-panic-test.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-panic "PANIC at kernel/src/main.rs"
 
@@ -122,7 +126,7 @@ test-fault-int3: $(BUILD)/hydrogen-fault-int3.iso
 test-fault-thread-stack: $(BUILD)/hydrogen-fault-thread-stack.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-fault-thread-stack "EXCEPTION: DOUBLE FAULT" "thread stack overflow"
 
-test-all: unit test test-threads test-preempt test-panic test-fault-pagefault test-fault-stack test-fault-int3 \
+test-all: unit test test-threads test-preempt test-user test-panic test-fault-pagefault test-fault-stack test-fault-int3 \
           test-fault-thread-stack
 	@echo "[make] ALL TESTS PASSED"
 

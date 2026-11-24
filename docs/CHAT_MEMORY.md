@@ -129,6 +129,18 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
   - Known limits: woken sleepers jump the queue (no priorities yet); drawing to the screen still
     holds a lock with interrupts off (not measured; matters in Phase 6); thread 0's boot stack is
     not freed; not run on the Dell yet.
+- **3.3 done (2026-11-25):** programs run in ring 3 (`proc/`, `syscall/`, `arch/x86_64/{space,syscall}.rs`).
+  - The kernel never dereferences user pointers: it walks the page tables and copies through the
+    direct map, so SMAP stays on and a bad pointer is just an error code.
+  - No `swapgs` yet (deviation from the plan's risk table): one core, so two statics are enough.
+    Must be added with multi-core support.
+  - All 256 upper top-level page-table entries are filled at boot (1 MiB) so every process shares
+    later kernel mappings.
+  - 16 deliberate breakages: 14 caught by `make test-user` (3 only after improving the tests), one
+    changes nothing (rbx, saved by the compiler too), and one — interrupts on just before `sysret` — is a
+    one-instruction window only caught by a one-off 30 s system call storm (normal test: 500 ms).
+  - Known limits: a process has one thread; exit codes of processes nobody waits for are kept
+    forever; no Meltdown/Spectre mitigations; freeing a process runs with interrupts off.
 - Lesson: passing `$?`/`|`/quotes through `tools/wsl.ps1` gets mangled by PowerShell; put
   multi-part commands in a script (e.g. `build/run-test-all.sh`, not committed) and run that.
 

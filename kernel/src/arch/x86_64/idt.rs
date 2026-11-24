@@ -3,9 +3,11 @@
 //! Every CPU exception has a handler. Fatal ones report and go to the crash screen;
 //! the breakpoint exception is recoverable and returns. Vectors 32+ are hardware interrupts.
 
-use super::gdt::{IST_DOUBLE_FAULT, IST_MACHINE_CHECK, IST_NMI};
+use super::cpu::close_smap;
+use super::gdt::{IST_DEBUG, IST_DOUBLE_FAULT, IST_MACHINE_CHECK, IST_NMI};
 use crate::{kprintln, mm};
 use spin::Once;
+use x86_64::PrivilegeLevel;
 use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
@@ -18,7 +20,6 @@ pub fn init() {
     let idt = IDT.call_once(|| {
         let mut idt = InterruptDescriptorTable::new();
         idt.divide_error.set_handler_fn(divide_error);
-        idt.debug.set_handler_fn(debug);
         idt.breakpoint.set_handler_fn(breakpoint);
         idt.overflow.set_handler_fn(overflow);
         idt.bound_range_exceeded.set_handler_fn(bound_range_exceeded);
@@ -41,6 +42,7 @@ pub fn init() {
         // is used by exactly one exception type.
         unsafe {
             idt.double_fault.set_handler_fn(double_fault).set_stack_index(IST_DOUBLE_FAULT);
+            idt.debug.set_handler_fn(debug).set_stack_index(IST_DEBUG);
             idt.non_maskable_interrupt.set_handler_fn(nmi).set_stack_index(IST_NMI);
             idt.machine_check.set_handler_fn(machine_check).set_stack_index(IST_MACHINE_CHECK);
         }
@@ -49,6 +51,11 @@ pub fn init() {
         idt
     });
     idt.load();
+}
+
+/// Did the interrupted code run in ring 3?
+fn from_user(f: &InterruptStackFrame) -> bool {
+    f.code_segment.rpl() == PrivilegeLevel::Ring3
 }
 
 fn fatal(name: &str, f: &InterruptStackFrame, code: Option<u64>) -> ! {
@@ -127,8 +134,9 @@ extern "x86-interrupt" fn machine_check(f: InterruptStackFrame) -> ! {
     panic!("EXCEPTION: MACHINE CHECK at rip={:#x} - hardware reported an error", f.instruction_pointer.as_u64());
 }
 
-extern "x86-interrupt" fn timer_interrupt(_f: InterruptStackFrame) {
-    crate::time::on_tick();
+extern "x86-interrupt" fn timer_interrupt(f: InterruptStackFrame) {
+    close_smap();
+    crate::time::on_tick(from_user(&f));
     // Acknowledge first: the scheduler may switch to another thread, and without the EOI that
     // thread would never see another timer interrupt.
     super::apic::eoi();

@@ -10,6 +10,9 @@
 //! ordinary function call, and — when the timer forces it — the whole interrupted state, saved
 //! by the interrupt entry. No SSE/FPU state exists yet (kernel is built without SSE).
 //!
+//! For threads of user processes a switch also changes the page tables and the stack used for
+//! entries from ring 3.
+//!
 //! Rules that keep this sound on one core:
 //! - every switch happens with interrupts off, and the thread that comes back restores its own
 //!   interrupt flag;
@@ -22,6 +25,8 @@
 
 mod stack;
 
+use crate::arch::x86_64::{space, syscall};
+use crate::proc::Process;
 use crate::sync::IrqMutex;
 use crate::time;
 use alloc::boxed::Box;
@@ -53,7 +58,9 @@ struct Thread {
     /// Timer ticks that arrived while this thread was running.
     cpu_ticks: u64,
     /// Freed when the thread is reaped. `None` for thread 0, which runs on the boot stack.
-    _stack: Option<stack::ThreadStack>,
+    stack: Option<stack::ThreadStack>,
+    /// The user program this thread runs, if any; freed together with the thread.
+    process: Option<Box<Process>>,
 }
 
 struct Scheduler {
@@ -73,7 +80,7 @@ static PREEMPT: AtomicBool = AtomicBool::new(false);
 /// Turn the code that is running right now into thread 0 and create the idle thread.
 pub fn init() {
     let boot = Box::new(Thread {
-        name: "kmain", state: State::Running, rsp: 0, entry: None, cpu_ticks: 0, _stack: None,
+        name: "kmain", state: State::Running, rsp: 0, entry: None, cpu_ticks: 0, stack: None, process: None,
     });
     *SCHED.lock() = Some(Scheduler {
         threads: BTreeMap::from([(0, boot)]),
@@ -82,7 +89,7 @@ pub fn init() {
         next_id: IDLE,
         zombie: None,
     });
-    let id = add_thread("idle", idle, false);
+    let id = add_thread("idle", idle, None, false);
     assert_eq!(id, IDLE);
 }
 
@@ -97,10 +104,16 @@ pub fn enable_preemption() {
 
 /// Create a thread that will run `entry`; it joins the back of the queue.
 pub fn spawn(name: &'static str, entry: fn()) -> ThreadId {
-    add_thread(name, entry, true)
+    add_thread(name, entry, None, true)
 }
 
-fn add_thread(name: &'static str, entry: fn(), queue: bool) -> ThreadId {
+/// Like `spawn`, for a thread that belongs to a user process. `entry` runs in the kernel, with
+/// the process's page tables active.
+pub fn spawn_process(name: &'static str, entry: fn(), process: Box<Process>) -> ThreadId {
+    add_thread(name, entry, Some(process), true)
+}
+
+fn add_thread(name: &'static str, entry: fn(), process: Option<Box<Process>>, queue: bool) -> ThreadId {
     let stack = stack::ThreadStack::new();
     // Initial stack, from the top down, so the first `switch_context` into it "returns" into
     // `thread_start` with the alignment a normal call would leave (rsp % 16 == 8 at entry):
@@ -119,7 +132,7 @@ fn add_thread(name: &'static str, entry: fn(), queue: bool) -> ThreadId {
         p.add(7).write(0);
     }
     let thread = Box::new(Thread {
-        name, state: State::Ready, rsp, entry: Some(entry), cpu_ticks: 0, _stack: Some(stack),
+        name, state: State::Ready, rsp, entry: Some(entry), cpu_ticks: 0, stack: Some(stack), process,
     });
 
     let mut g = SCHED.lock();
@@ -224,6 +237,15 @@ fn schedule(leave: State) {
         let old_rsp = &raw mut old.rsp;
         let new = s.threads.get_mut(&next).expect("next thread missing");
         new.state = State::Running;
+        // Safe a moment before the stack switch: all page tables share the kernel half, and the
+        // entry stack is only used when ring 3 is left.
+        match &new.process {
+            Some(p) => p.space.activate(),
+            None => space::activate_kernel(),
+        }
+        if let Some(stack) = &new.stack {
+            syscall::set_kernel_stack(stack.top());
+        }
         (old_rsp, new.rsp)
         // lock released here; interrupts stay off until the switch is done
     };
@@ -244,6 +266,14 @@ fn reap() {
         s.zombie.take().and_then(|id| s.threads.remove(&id))
     };
     drop(dead); // unmaps the stack; done after releasing the scheduler lock
+}
+
+/// Look at the process of the current thread (`None` for a kernel thread). Holds the scheduler
+/// lock meanwhile, so `f` must be short and must not print.
+pub fn with_process<R>(f: impl FnOnce(&Process) -> R) -> Option<R> {
+    let g = SCHED.lock();
+    let s = g.as_ref()?;
+    s.threads.get(&s.current)?.process.as_deref().map(f)
 }
 
 pub fn current_id() -> ThreadId {

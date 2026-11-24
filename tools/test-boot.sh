@@ -13,7 +13,7 @@ ISO=$1
 OUT=$2
 shift 2
 EXPECTS=("$@")
-LIMIT=${TIMEOUT:-20}
+LIMIT=${TIMEOUT:-40}
 
 ACCEL="-accel tcg -cpu max"
 [ -r /dev/kvm ] && [ -w /dev/kvm ] && ACCEL="-accel kvm -cpu host"

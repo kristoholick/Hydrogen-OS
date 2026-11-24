@@ -1,6 +1,8 @@
 //! Boot-time self-checks. Each one either logs "ok" or panics with what went wrong,
 //! which the headless tests turn into a pass/fail.
 
+mod user;
+
 use crate::arch::x86_64::rtc;
 use crate::mm::{heap, pmm, vmm};
 use crate::{kprintln, sched, time};
@@ -124,6 +126,11 @@ pub fn preemption() {
     preempt_state_intact();
     preempt_no_leaks();
     preempt_idle();
+}
+
+/// First programs outside the kernel (Phase 3.3).
+pub fn user() {
+    user::run();
 }
 
 /// Wait (asleep) until the threads are gone.

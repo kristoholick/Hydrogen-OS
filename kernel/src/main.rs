@@ -18,10 +18,12 @@ mod faulttest;
 mod fmtbuf;
 mod mm;
 mod panic;
+mod proc;
 mod sched;
 mod selftest;
 mod splash;
 mod sync;
+mod syscall;
 mod time;
 
 use arch::x86_64::{apic, cpu, gdt, idt, pic};
@@ -125,6 +127,14 @@ extern "C" fn kmain_stage2() -> ! {
         }
     };
 
+    // --- doors for user programs, and the CPU's protections against them ---
+    let g = cpu::enable_user_guards();
+    arch::x86_64::syscall::init();
+    kprintln!("[hydrogen] user mode: syscall door open; SMEP {}, SMAP {}, UMIP {}", on(g.smep), on(g.smap), on(g.umip));
+    if !(g.smep && g.smap) {
+        kprintln!("[hydrogen] WARNING: this CPU lacks SMEP or SMAP; the kernel has less protection from programs");
+    }
+
     // --- threads: first cooperative (the exact-order check needs that), then preemptive ---
     sched::init();
     kprintln!("[hydrogen] sched: boot path is now thread 0 (kmain), idle thread is 1");
@@ -133,6 +143,7 @@ extern "C" fn kmain_stage2() -> ! {
         sched::enable_preemption();
         kprintln!("[hydrogen] sched: preemption on ({} ms time slices)", 1000 / time::HZ);
         selftest::preemption();
+        selftest::user();
     } else {
         kprintln!("[hydrogen] sched: no timer, so no preemption; thread checks FAILED (not run)");
     }
@@ -158,6 +169,10 @@ extern "C" fn kmain_stage2() -> ! {
         kprintln!("[hydrogen] phase 2 boot complete; idling with timer running");
         sched::exit() // from here the idle thread runs whenever nobody else needs the CPU
     }
+}
+
+fn on(b: bool) -> &'static str {
+    if b { "on" } else { "MISSING" }
 }
 
 fn init_framebuffer() {

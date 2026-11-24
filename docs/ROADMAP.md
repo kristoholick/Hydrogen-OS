@@ -56,7 +56,10 @@ Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF lo
 - [x] 3.2 Preemption — timer switches threads every 10 ms (round-robin), `sleep_ms`, idle thread,
   exited threads' stacks freed and reused, serial output no longer blocks the timer; `make test-preempt`.
   Passed 2026-11-24 on the Ryzen (25/25 boots with KVM, 5/5 without). Not yet run on the Dell.
-- [ ] 3.3 Ring 3 + syscalls · [ ] 3.4 ELF loader · [ ] 3.5 Fault isolation
+- [x] 3.3 Ring 3 + syscalls — page tables per process, `syscall`/`sysret`, 6 system calls, SMEP/SMAP/UMIP
+  on, x87/SSE off for programs until their registers are saved per thread; `make test-user`.
+  Passed 2026-11-25 on the Ryzen (10/10 boots with KVM, 5/5 without). Not yet run on the Dell.
+- [ ] 3.4 ELF loader · [ ] 3.5 Fault isolation
 
 ## Phase 4 — Hardware
 PCIe enumeration, uACPI, VirtIO (blk, net, input, gpu), PS/2 keyboard/mouse, AHCI.

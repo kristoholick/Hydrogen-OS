@@ -32,6 +32,7 @@ pub const STACK_TOP: u64 = STACK_GUARD + PAGE_SIZE as u64 + STACK_SIZE;
 
 static MAPPER: IrqMutex<Option<OffsetPageTable<'static>>> = IrqMutex::new(None);
 static HHDM: AtomicU64 = AtomicU64::new(0);
+static PML4: AtomicU64 = AtomicU64::new(0);
 
 const RW_NX: F = F::PRESENT.union(F::WRITABLE).union(F::NO_EXECUTE);
 
@@ -51,6 +52,11 @@ fn sym(s: &u8) -> u64 {
 
 pub fn hhdm() -> u64 {
     HHDM.load(Ordering::Relaxed)
+}
+
+/// Physical address of the kernel's top-level page table.
+pub fn kernel_pml4() -> u64 {
+    PML4.load(Ordering::Relaxed)
 }
 
 #[derive(Default, Debug)]
@@ -147,11 +153,21 @@ pub fn init(entries: &[&Entry], hhdm: u64, kernel_phys: u64, kernel_virt: u64) -
         v += PAGE_SIZE as u64;
     }
 
-    // 4) switch. Everything the CPU touches next (this code, the current Limine stack,
+    // 4) give every upper-half top-level entry a (possibly empty) table now. Process page tables
+    //    copy these 256 entries, so kernel mappings made later appear in all of them (1 MiB).
+    for e in m.level_4_table_mut().iter_mut().skip(256).filter(|e| e.is_unused()) {
+        let f = pmm::alloc_frame().expect("out of memory for kernel page tables");
+        // SAFETY: the frame is freshly allocated and reachable through the direct map.
+        unsafe { ((hhdm + f.as_u64()) as *mut PageTable).write(PageTable::new()) };
+        e.set_addr(f, F::PRESENT | F::WRITABLE);
+    }
+
+    // 5) switch. Everything the CPU touches next (this code, the current Limine stack,
     //    statics, framebuffer, Limine responses) is mapped above.
     // SAFETY: the new PML4 maps the kernel image, the direct map (which contains the current
     // stack — checked by the caller) and all memory in use, with identical virtual addresses.
     unsafe { Cr3::write(PhysFrame::containing_address(pml4_phys), Cr3Flags::empty()) };
+    PML4.store(pml4_phys.as_u64(), Ordering::Relaxed);
     *MAPPER.lock() = Some(m);
     info
 }
