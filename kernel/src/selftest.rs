@@ -2,6 +2,7 @@
 //! which the headless tests turn into a pass/fail.
 
 mod elf;
+mod isolation;
 mod user;
 
 use crate::arch::x86_64::rtc;
@@ -137,6 +138,11 @@ pub fn user() {
 /// Program files shipped as boot modules (Phase 3.4).
 pub fn elf() {
     elf::run();
+}
+
+/// Misbehaving programs hurt only themselves (Phase 3.5).
+pub fn isolation() {
+    isolation::run();
 }
 
 /// Wait (asleep) until the threads are gone.

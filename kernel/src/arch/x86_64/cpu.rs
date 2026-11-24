@@ -3,6 +3,7 @@
 use core::sync::atomic::{AtomicBool, Ordering};
 use x86_64::registers::control::{Cr0, Cr0Flags, Cr4, Cr4Flags};
 use x86_64::registers::model_specific::{Efer, EferFlags};
+use x86_64::registers::rflags::{self, RFlags};
 
 /// Mask maskable interrupts on this core.
 #[inline]
@@ -89,4 +90,14 @@ pub fn close_smap() {
         // SAFETY: the instruction exists when SMAP does; it only clears EFLAGS.AC.
         unsafe { core::arch::asm!("clac", options(nomem, nostack)) };
     }
+}
+
+/// Cheap check, on every entry from ring 3: no program may suspend SMAP or reverse the direction
+/// of memory copies inside the kernel.
+#[inline]
+pub fn assert_flags_clean() {
+    let flags = rflags::read();
+    let ac = flags.contains(RFlags::ALIGNMENT_CHECK) && SMAP_ON.load(Ordering::Relaxed);
+    assert!(!ac, "SMAP is suspended inside the kernel");
+    assert!(!flags.contains(RFlags::DIRECTION_FLAG), "memory copies run backwards inside the kernel");
 }

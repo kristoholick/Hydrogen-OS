@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # usage: tools/check-interleave.sh <serial.log>
 # Passes if the lines of hello-a and hello-b are complete, in order, and change hands at least 4 times.
+# Only the first run counts: the two programs run again later as bystanders of other checks.
 set -uo pipefail
-seq=$(tr -d '\r' < "$1" | grep -aoE '^\[hello-[ab] [0-9]+\] [AB][0-9]$' | awk '{print $3}' | tr '\n' ' ')
+seq=$(tr -d '\r' < "$1" | sed '/selftest elf: ok (hello-a and hello-b/q' | grep -aoE '^\[hello-[ab] [0-9]+\] [AB][0-9]$' | awk '{print $3}' | tr '\n' ' ')
 a=$(echo $seq | tr ' ' '\n' | grep '^A' | tr -d '\n')
 b=$(echo $seq | tr ' ' '\n' | grep '^B' | tr -d '\n')
 turns=$(echo $seq | tr ' ' '\n' | cut -c1 | uniq | wc -l)

@@ -6,12 +6,12 @@ use crate::proc::{self, ExitStatus, SpawnError};
 use crate::{kprintln, sched};
 use alloc::vec::Vec;
 
-fn file(name: &str) -> &'static [u8] {
+pub fn file(name: &str) -> &'static [u8] {
     boot::module(name).unwrap_or_else(|| panic!("program {name} is missing from the boot modules"))
 }
 
-fn start(name: &str) -> proc::Pid {
-    proc::spawn_elf(name, file(name)).unwrap_or_else(|e| panic!("cannot start {name}: {e:?}"))
+pub fn start(name: &str) -> proc::Pid {
+    proc::spawn_elf(name, file(name), 0).unwrap_or_else(|e| panic!("cannot start {name}: {e:?}"))
 }
 
 pub fn run() {
@@ -44,7 +44,7 @@ fn damaged_files() {
     let refused = |edit: &dyn Fn(&mut Vec<u8>)| {
         let mut f = good.to_vec();
         edit(&mut f);
-        match proc::spawn_elf("damaged", &f) {
+        match proc::spawn_elf("damaged", &f, 0) {
             Err(SpawnError::File(e)) => e,
             other => panic!("damaged program not refused: {other:?}"),
         }
@@ -68,7 +68,7 @@ fn no_leaks() {
         // refused programs must not leave half-built memory behind either
         let mut f = file("hello-a").to_vec();
         f[0] = 0;
-        assert!(proc::spawn_elf("damaged", &f).is_err());
+        assert!(proc::spawn_elf("damaged", &f, 0).is_err());
     };
     let snapshot = || {
         let h = heap::stats();

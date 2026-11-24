@@ -4,13 +4,14 @@ An independent operating system built from scratch: its own kernel, drivers, fil
 compositor and a three-realm desktop inspired by cinematic consoles, spatial computing and
 medieval dark fantasy.
 
-> Status: **Phase 3 in progress — multitasking** (plan: `docs/PHASE3_PLAN.md`). Phase 2 done: own page
-> tables, memory manager, heap, interrupts, timer; CPU faults are caught and reported.
+> Status: **Phase 3 built — multitasking**: programs run side by side in their own memory, and a crashing
+> program cannot take the system down (passes in QEMU; run on the second PC still to do). Next: Phase 4,
+> hardware (`docs/PHASE4_PLAN.md`).
 > (Early history used the codename SIGIL.)
 
 | Boot screen | Stack overflow caught |
 |---|---|
-| ![boot](docs/screenshots/phase2-boot.png) | ![stack](docs/screenshots/phase2-stack-overflow.png) |
+| ![boot](docs/screenshots/phase3-boot.png) | ![stack](docs/screenshots/phase2-stack-overflow.png) |
 
 ## Repo map
 | Path | What it is |

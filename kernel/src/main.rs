@@ -149,6 +149,7 @@ extern "C" fn kmain_stage2() -> ! {
             kprintln!("[hydrogen]   {} ({} bytes)", name, data.len());
         }
         selftest::elf();
+        selftest::isolation();
     } else {
         kprintln!("[hydrogen] sched: no timer, so no preemption; thread checks FAILED (not run)");
     }
@@ -162,16 +163,19 @@ extern "C" fn kmain_stage2() -> ! {
     faulttest::stack_overflow();
     #[cfg(feature = "fault-thread-stack")]
     faulttest::thread_stack_overflow();
+    #[cfg(any(feature = "fault-smap", feature = "fault-smep"))]
+    faulttest::user_memory();
 
     // --- boot screen ---
-    draw_boot_screen(timer_text.as_str());
+    let protection = if g.smep && g.smap { "NX, W^X, SMEP, SMAP, guards" } else { "NX, W^X, guard pages" };
+    draw_boot_screen(timer_text.as_str(), protection);
 
     #[cfg(feature = "panic-test")]
     panic!("deliberate panic-test: the crash screen works");
 
     #[allow(unreachable_code)]
     {
-        kprintln!("[hydrogen] phase 2 boot complete; idling with timer running");
+        kprintln!("[hydrogen] phase 3 boot complete; idling with timer running");
         sched::exit() // from here the idle thread runs whenever nobody else needs the CPU
     }
 }
@@ -200,7 +204,7 @@ fn init_framebuffer() {
     *FB.lock() = Some(fbo);
 }
 
-fn draw_boot_screen(timer: &str) {
+fn draw_boot_screen(timer: &str, protection: &str) {
     let bootloader = match boot::BOOTLOADER_INFO.response() {
         Some(r) => fmtbuf!(48, "{} {}", r.name(), r.version()),
         None => fmtbuf!(48, "unknown"),
@@ -215,7 +219,7 @@ fn draw_boot_screen(timer: &str) {
             bootloader: bootloader.as_str(),
             display: display.as_str(),
             memory: memory.as_str(),
-            protection: "NX, W^X, guard page",
+            protection,
             timer,
         });
         kprintln!("[hydrogen] boot screen drawn");

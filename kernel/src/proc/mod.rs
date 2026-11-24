@@ -10,6 +10,7 @@ use crate::sync::IrqMutex;
 use crate::{kprintln, sched, time};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
+use core::fmt;
 use hydrogen_elf::{Limits, Program};
 use hydrogen_mm::PAGE_SIZE;
 
@@ -35,6 +36,7 @@ pub struct Process {
     pub space: AddressSpace,
     entry: u64,
     stack_top: u64,
+    arg: u64,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -65,11 +67,12 @@ pub fn spawn_flat(name: &str, code: &[u8]) -> Result<Pid, SpawnError> {
         space.map(v, Access { write: false, exec: true })?;
     }
     space.fill(CODE_BASE, code)?;
-    start(name, space, CODE_BASE)
+    start(name, space, CODE_BASE, 0)
 }
 
-/// Start a program from an ELF file. The file is untrusted.
-pub fn spawn_elf(name: &str, file: &[u8]) -> Result<Pid, SpawnError> {
+/// Start a program from an ELF file (untrusted). `arg` is handed to it in a register; real
+/// command lines come with the shell.
+pub fn spawn_elf(name: &str, file: &[u8], arg: u64) -> Result<Pid, SpawnError> {
     let program = Program::parse(file, &LIMITS).map_err(SpawnError::File)?;
     let mut space = AddressSpace::new().ok_or(MapError::OutOfMemory)?;
     for s in program.segments() {
@@ -78,22 +81,22 @@ pub fn spawn_elf(name: &str, file: &[u8]) -> Result<Pid, SpawnError> {
         }
         space.fill(s.addr, s.data)?;
     }
-    start(name, space, program.entry)
+    start(name, space, program.entry, arg)
 }
 
-fn start(name: &str, mut space: AddressSpace, entry: u64) -> Result<Pid, SpawnError> {
+fn start(name: &str, mut space: AddressSpace, entry: u64, arg: u64) -> Result<Pid, SpawnError> {
     for v in (STACK_BASE..STACK_BASE + STACK_SIZE).step_by(PAGE_SIZE) {
         space.map(v, Access { write: true, exec: false })?;
     }
     let name = crate::fmtbuf!(32, "{}", name);
-    let process = Process { name, space, entry, stack_top: STACK_BASE + STACK_SIZE };
+    let process = Process { name, space, entry, stack_top: STACK_BASE + STACK_SIZE, arg };
     Ok(sched::spawn_process("user", first_run, Box::new(process)))
 }
 
 /// Kernel side of a new process's thread: go to ring 3 and never come back this way.
 fn first_run() {
-    let (entry, stack_top) = sched::with_process(|p| (p.entry, p.stack_top)).expect("not a process");
-    enter_user(entry, stack_top)
+    let (entry, stack_top, arg) = sched::with_process(|p| (p.entry, p.stack_top, p.arg)).expect("not a process");
+    enter_user(entry, stack_top, arg)
 }
 
 pub fn current_name() -> Name {
@@ -102,26 +105,19 @@ pub fn current_name() -> Name {
 
 /// End the current process. Its memory is freed by the next thread that runs.
 pub fn exit_current(code: i32) -> ! {
+    kprintln!("[hydrogen] process {} (pid {}) exited with code {}", current_name().as_str(), sched::current_id(), code);
     finish(ExitStatus::Exited(code))
 }
 
-/// End the current process because it did something it must not.
-pub fn kill_current(why: &'static str) -> ! {
+/// End the current process because it did something it must not. `details` is only logged.
+pub fn kill_current(why: &'static str, details: fmt::Arguments) -> ! {
+    kprintln!("[hydrogen] process {} (pid {}) KILLED: {}{}", current_name().as_str(), sched::current_id(), why, details);
     finish(ExitStatus::Killed(why))
 }
 
 /// Nothing that owns heap memory may be alive on the caller's stack: it is thrown away.
 fn finish(status: ExitStatus) -> ! {
-    let (name, pid) = (current_name(), sched::current_id());
-    match status {
-        ExitStatus::Exited(code) => {
-            kprintln!("[hydrogen] process {} (pid {}) exited with code {}", name.as_str(), pid, code)
-        }
-        ExitStatus::Killed(why) => {
-            kprintln!("[hydrogen] process {} (pid {}) KILLED: {}", name.as_str(), pid, why)
-        }
-    }
-    EXITS.lock().insert(pid, status);
+    EXITS.lock().insert(sched::current_id(), status);
     sched::exit()
 }
 

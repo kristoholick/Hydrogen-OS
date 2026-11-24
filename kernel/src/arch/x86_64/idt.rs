@@ -1,13 +1,16 @@
 //! Interrupt Descriptor Table: what the CPU runs for each exception and interrupt.
 //!
-//! Every CPU exception has a handler. Fatal ones report and go to the crash screen;
+//! Every CPU exception has a handler. In ring 3 it ends the program that caused it. In the kernel
+//! fatal ones report and go to the crash screen;
 //! the breakpoint exception is recoverable and returns. Vectors 32+ are hardware interrupts.
 
-use super::cpu::close_smap;
+use super::cpu::{assert_flags_clean, close_smap};
 use super::gdt::{IST_DEBUG, IST_DOUBLE_FAULT, IST_MACHINE_CHECK, IST_NMI};
 use crate::{kprintln, mm};
+use core::fmt;
 use spin::Once;
 use x86_64::PrivilegeLevel;
+use x86_64::instructions::interrupts;
 use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
@@ -67,45 +70,77 @@ fn fatal(name: &str, f: &InterruptStackFrame, code: Option<u64>) -> ! {
     }
 }
 
-macro_rules! fatal_handler {
+/// An exception in ring 3 ends that program; in the kernel it is fatal.
+fn exception(name: &'static str, f: &InterruptStackFrame, code: Option<u64>) {
+    if from_user(f) {
+        interrupts::enable(); // on the program's own kernel stack, no lock held
+        match code {
+            Some(c) => user_fault(name, f, format_args!(" (error code {c:#x})")),
+            None => user_fault(name, f, format_args!("")),
+        }
+    }
+    fatal(name, f, code)
+}
+
+fn user_fault(name: &'static str, f: &InterruptStackFrame, details: fmt::Arguments) -> ! {
+    close_smap();
+    crate::proc::kill_current(name, format_args!("{} rip={:#x}", details, f.instruction_pointer.as_u64()))
+}
+
+macro_rules! handler {
     ($fn:ident, $name:literal) => {
         extern "x86-interrupt" fn $fn(f: InterruptStackFrame) {
-            fatal($name, &f, None)
+            exception($name, &f, None)
         }
     };
     ($fn:ident, $name:literal, code) => {
         extern "x86-interrupt" fn $fn(f: InterruptStackFrame, code: u64) {
-            fatal($name, &f, Some(code))
+            exception($name, &f, Some(code))
         }
     };
 }
 
-fatal_handler!(divide_error, "DIVIDE ERROR");
-fatal_handler!(debug, "DEBUG");
-fatal_handler!(overflow, "OVERFLOW");
-fatal_handler!(bound_range_exceeded, "BOUND RANGE EXCEEDED");
-fatal_handler!(invalid_opcode, "INVALID OPCODE");
-fatal_handler!(device_not_available, "DEVICE NOT AVAILABLE");
-fatal_handler!(nmi, "NON-MASKABLE INTERRUPT");
-fatal_handler!(x87_floating_point, "X87 FLOATING POINT");
-fatal_handler!(simd_floating_point, "SIMD FLOATING POINT");
-fatal_handler!(virtualization, "VIRTUALIZATION");
-fatal_handler!(hv_injection, "HYPERVISOR INJECTION");
-fatal_handler!(invalid_tss, "INVALID TSS", code);
-fatal_handler!(segment_not_present, "SEGMENT NOT PRESENT", code);
-fatal_handler!(stack_segment_fault, "STACK SEGMENT FAULT", code);
-fatal_handler!(general_protection_fault, "GENERAL PROTECTION FAULT", code);
-fatal_handler!(alignment_check, "ALIGNMENT CHECK", code);
-fatal_handler!(cp_protection, "CONTROL PROTECTION", code);
-fatal_handler!(vmm_communication, "VMM COMMUNICATION", code);
-fatal_handler!(security_exception, "SECURITY EXCEPTION", code);
+handler!(divide_error, "DIVIDE ERROR");
+handler!(overflow, "OVERFLOW");
+handler!(bound_range_exceeded, "BOUND RANGE EXCEEDED");
+handler!(invalid_opcode, "INVALID OPCODE");
+handler!(device_not_available, "DEVICE NOT AVAILABLE");
+handler!(x87_floating_point, "X87 FLOATING POINT");
+handler!(simd_floating_point, "SIMD FLOATING POINT");
+handler!(virtualization, "VIRTUALIZATION");
+handler!(hv_injection, "HYPERVISOR INJECTION");
+handler!(invalid_tss, "INVALID TSS", code);
+handler!(segment_not_present, "SEGMENT NOT PRESENT", code);
+handler!(stack_segment_fault, "STACK SEGMENT FAULT", code);
+handler!(general_protection_fault, "GENERAL PROTECTION FAULT", code);
+handler!(alignment_check, "ALIGNMENT CHECK", code);
+handler!(cp_protection, "CONTROL PROTECTION", code);
+handler!(vmm_communication, "VMM COMMUNICATION", code);
+handler!(security_exception, "SECURITY EXCEPTION", code);
+
+extern "x86-interrupt" fn nmi(f: InterruptStackFrame) {
+    fatal("NON-MASKABLE INTERRUPT", &f, None) // a hardware problem, whoever was running
+}
+
+extern "x86-interrupt" fn debug(f: InterruptStackFrame) {
+    if from_user(&f) {
+        // Interrupts stay off: this runs on the shared emergency stack, so nobody else may run
+        // before the program is gone.
+        user_fault("DEBUG", &f, format_args!(""))
+    }
+    fatal("DEBUG", &f, None)
+}
 
 extern "x86-interrupt" fn breakpoint(f: InterruptStackFrame) {
     kprintln!("[hydrogen] BREAKPOINT at rip={:#x} - handled, continuing", f.instruction_pointer.as_u64());
 }
 
 extern "x86-interrupt" fn page_fault(f: InterruptStackFrame, code: PageFaultErrorCode) {
-    let addr = Cr2::read_raw();
+    let addr = Cr2::read_raw(); // before anything can cause another page fault
+    if from_user(&f) {
+        interrupts::enable();
+        user_fault("PAGE FAULT", &f, format_args!(" at {:#x} ({:?})", addr, code));
+    }
     let hint = if mm::vmm::is_stack_guard(addr) {
         " - kernel stack overflow (guard page)"
     } else if crate::sched::is_thread_stack_guard(addr) {
@@ -136,6 +171,7 @@ extern "x86-interrupt" fn machine_check(f: InterruptStackFrame) -> ! {
 
 extern "x86-interrupt" fn timer_interrupt(f: InterruptStackFrame) {
     close_smap();
+    assert_flags_clean();
     crate::time::on_tick(from_user(&f));
     // Acknowledge first: the scheduler may switch to another thread, and without the EOI that
     // thread would never see another timer interrupt.

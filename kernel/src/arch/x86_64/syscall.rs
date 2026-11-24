@@ -92,12 +92,13 @@ core::arch::global_asm!(
 );
 
 extern "C" fn handler(f: &mut Frame) {
+    super::cpu::assert_flags_clean();
     interrupts::enable(); // we are on the thread's own kernel stack now
     f.rax = crate::syscall::dispatch(f.rax, [f.rdi, f.rsi, f.rdx, f.r10, f.r8, f.r9]) as u64;
     // `sysret` to a non-canonical address faults in ring 0 with the user's stack (a well-known
     // CPU trap). No page that high can be mapped, so this cannot happen; check anyway.
     if f.rip >= USER_END {
-        crate::proc::kill_current("returned to a bad address");
+        crate::proc::kill_current("BAD RETURN ADDRESS", format_args!(" {:#x}", f.rip));
     }
 }
 
@@ -128,8 +129,8 @@ pub fn set_kernel_stack(top: u64) {
     gdt::set_ring0_stack(top);
 }
 
-/// Jump into ring 3 for the first time, every register zero, interrupts on.
-pub fn enter_user(rip: u64, rsp: u64) -> ! {
+/// Jump into ring 3 for the first time: rdi = `arg`, every other register zero, interrupts on.
+pub fn enter_user(rip: u64, rsp: u64, arg: u64) -> ! {
     assert!(rip < USER_END && rsp <= USER_END, "bad user entry point");
     let s = gdt::selectors();
     interrupts::disable(); // `iretq` turns them back on
@@ -142,13 +143,12 @@ pub fn enter_user(rip: u64, rsp: u64) -> ! {
             "push rcx", // rsp
             "push 0x202", // rflags: interrupts on, nothing else
             "push rdx", // cs
-            "push rdi", // rip
+            "push rsi", // rip
             "xor eax, eax",
             "xor ebx, ebx",
             "xor ecx, ecx",
             "xor edx, edx",
             "xor esi, esi",
-            "xor edi, edi",
             "xor ebp, ebp",
             "xor r8d, r8d",
             "xor r9d, r9d",
@@ -162,7 +162,8 @@ pub fn enter_user(rip: u64, rsp: u64) -> ! {
             in("rax") s.user_data.0 as u64,
             in("rcx") rsp,
             in("rdx") s.user_code.0 as u64,
-            in("rdi") rip,
+            in("rsi") rip,
+            in("rdi") arg,
             options(noreturn)
         )
     }

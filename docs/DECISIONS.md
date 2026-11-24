@@ -22,6 +22,8 @@
 | 18 | 2026-11-22 | Owner's laptop may be used as a real-hardware test machine | Owner's permission. Still never: firmware flashing, writing the internal SSD |
 | 19 | 2026-11-23 | **OS name: Hydrogen** (replaces codename SIGIL) | Owner's choice. Note: OnePlus once shipped an Android skin called "HydrogenOS" — fine for a personal project, worth a check before any public release |
 | 20 | 2026-11-23 | Long-term goal: equivalents of **all** everyday Windows 11 features | Owner's request. Built in phase order (see ARCHITECTURE.md §8); running Windows `.exe` files stays out of scope |
+| 21 | 2026-11-25 | No `swapgs`/per-core data until multi-core support; system call entry uses two statics | One core only; avoids a whole class of entry bugs. The plan mentioned `swapgs` |
+| 22 | 2026-11-25 | x87/SSE switched off for programs until their registers are saved per thread | A program using them is ended instead of silently sharing registers. Needed again before Phase 6 |
 
 ## Open questions for the owner
-- Visual choices from the Design Lab
+- Phase 4 plan (`docs/PHASE4_PLAN.md`), including whether to try VirtualBox

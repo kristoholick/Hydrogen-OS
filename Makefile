@@ -8,10 +8,10 @@ KERNEL_ELF   := target/x86_64-unknown-none/release/hydrogen-kernel
 ISO          := $(BUILD)/hydrogen.iso
 # User programs (userspace/apps/src/bin/*.rs), shipped in the ISO as boot modules. Every program
 # here must also be listed in boot/limine.conf.
-APPS         := hello-a hello-b memory-check
+APPS         := hello-a hello-b memory-check crash-test abuse-test
 APPS_DIR     := target/userspace/x86_64-unknown-none/release
 # Test variants: each is the normal kernel plus one Cargo feature, built in its own target dir.
-VARIANTS     := panic-test fault-pagefault fault-stack fault-int3 fault-thread-stack
+VARIANTS     := panic-test fault-pagefault fault-stack fault-int3 fault-thread-stack fault-smap fault-smep
 
 # --- Limine, pinned (official repo: codeberg.org/Limine/Limine) ---
 LIMINE_TAG    := v11.2.1-binary
@@ -28,8 +28,8 @@ QEMU_BASE  = qemu-system-x86_64 $(ACCEL) -M q35 -m 512M -no-reboot \
              -drive if=pflash,unit=0,format=raw,file=$(OVMF_CODE),readonly=on \
              -drive if=pflash,unit=1,format=raw,file=$(BUILD)/ovmf-vars.fd
 
-.PHONY: all kernel apps iso run debug unit test test-threads test-preempt test-user test-elf test-panic test-fault-pagefault test-fault-stack \
-        test-fault-int3 test-fault-thread-stack test-all limine clean distclean FORCE
+.PHONY: all kernel apps iso run debug unit test test-threads test-preempt test-user test-elf test-isolation test-panic test-fault-pagefault test-fault-stack \
+        test-fault-int3 test-fault-thread-stack test-fault-smap test-fault-smep test-all limine clean distclean FORCE
 
 all: iso
 
@@ -98,7 +98,7 @@ test: iso
 	@bash tools/test-boot.sh $(ISO) $(BUILD)/test \
 		"Hydrogen kernel online" "IDT loaded" "paging: own page tables active" "now on kernel stack" \
 		"selftest pmm: ok" "selftest paging: ok" "selftest heap: ok" "timer ok" "selftest threads: ok" \
-		"phase 2 boot complete"
+		"phase 3 boot complete"
 
 # Phase 3.1: two kernel threads alternate A1 B1 A2 B2 A3 B3 (the kernel checks the exact order).
 test-threads: iso
@@ -113,19 +113,27 @@ test-preempt: iso
 		"sched: preemption on (10 ms time slices)" "locks mask interrupts" \
 		"clock kept time while printing" "3 threads in endless loops got" \
 		"results under forced switches, 0 wrong" "50 threads started and finished, no memory leaked" \
-		"idle thread took" "phase 2 boot complete"
+		"idle thread took" "phase 3 boot complete"
 
 # Phase 3.3: programs in ring 3 with private memory, talking to the kernel through system calls.
 test-user: iso
-	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-user 		"user mode: syscall door open; SMEP on, SMAP on" "] hello from ring 3" "exited with code 0" 		"hello ran in ring 3, exit code 0" "registers intact across system calls" 		"500 ms of nothing but system calls" "each saw only its own data" "50 programs started and finished, no memory leaked" "phase 2 boot complete"
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-user 		"user mode: syscall door open; SMEP on, SMAP on" "] hello from ring 3" "exited with code 0" 		"hello ran in ring 3, exit code 0" "registers intact across system calls" 		"500 ms of nothing but system calls" "each saw only its own data" "50 programs started and finished, no memory leaked" "phase 3 boot complete"
 
 # Phase 3.4: two separate program files are loaded and take turns; the loader gets memory right.
 test-elf: iso
 	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-elf \
-		"boot modules: 3 programs" "] A5" "] B5" "constants, variables and stack are fine" \
+		"boot modules: 5 programs" "] A5" "] B5" "constants, variables and stack are fine" \
 		"selftest elf: ok (hello-a and hello-b" "selftest elf: ok (memory-check" \
-		"selftest elf: ok (damaged program files refused" "selftest elf: ok (no memory leaked" "phase 2 boot complete"
+		"selftest elf: ok (damaged program files refused" "selftest elf: ok (no memory leaked" "phase 3 boot complete"
 	@bash tools/check-interleave.sh $(BUILD)/test-elf/serial.log
+
+# Phase 3.5: programs that misbehave are ended; the kernel and the other programs carry on.
+test-isolation: iso
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-isolation \
+		"KILLED: PAGE FAULT at 0xffffffff80000000" "KILLED: DIVIDE ERROR" "KILLED: INVALID OPCODE" \
+		"KILLED: GENERAL PROTECTION FAULT" "43 kinds of crash, each ended only its own program" \
+		"] [hydrogen] forged kernel line??[31mred" "bad system call arguments come back as errors" \
+		"crashed programs leaked no memory" "phase 3 boot complete"
 
 test-panic: $(BUILD)/hydrogen-panic-test.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-panic "PANIC at kernel/src/main.rs"
@@ -137,14 +145,21 @@ test-fault-stack: $(BUILD)/hydrogen-fault-stack.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-fault-stack "EXCEPTION: DOUBLE FAULT" "kernel stack overflow"
 
 test-fault-int3: $(BUILD)/hydrogen-fault-int3.iso
-	@bash tools/test-boot.sh $< $(BUILD)/test-fault-int3 "BREAKPOINT at rip=" "resumed after breakpoint" "phase 2 boot complete"
+	@bash tools/test-boot.sh $< $(BUILD)/test-fault-int3 "BREAKPOINT at rip=" "resumed after breakpoint" "phase 3 boot complete"
 
 # Phase 3.1: a kernel thread overflowing its 16 KiB stack hits its own guard page.
 test-fault-thread-stack: $(BUILD)/hydrogen-fault-thread-stack.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-fault-thread-stack "EXCEPTION: DOUBLE FAULT" "thread stack overflow"
 
-test-all: unit test test-threads test-preempt test-user test-elf test-panic test-fault-pagefault test-fault-stack test-fault-int3 \
-          test-fault-thread-stack
+# Phase 3.5: the CPU stops the kernel itself from reading (SMAP) or running (SMEP) program memory.
+test-fault-smap: $(BUILD)/hydrogen-fault-smap.iso
+	@bash tools/test-boot.sh $< $(BUILD)/test-fault-smap "EXCEPTION: PAGE FAULT at 0x400000 (PageFaultErrorCode(PROTECTION_VIOLATION))"
+
+test-fault-smep: $(BUILD)/hydrogen-fault-smep.iso
+	@bash tools/test-boot.sh $< $(BUILD)/test-fault-smep "EXCEPTION: PAGE FAULT at 0x400000 (PageFaultErrorCode(PROTECTION_VIOLATION | INSTRUCTION_FETCH))"
+
+test-all: unit test test-threads test-preempt test-user test-elf test-isolation test-panic test-fault-pagefault test-fault-stack \
+          test-fault-int3 test-fault-thread-stack test-fault-smap test-fault-smep
 	@echo "[make] ALL TESTS PASSED"
 
 clean:

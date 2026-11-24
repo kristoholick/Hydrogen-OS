@@ -17,6 +17,8 @@ fault-pagefault = []
 fault-stack = []
 fault-int3 = []
 fault-thread-stack = []
+fault-smap = []
+fault-smep = []
 
 [dependencies]
 hydrogen-mm = { path = "../crates/hydrogen-mm" }

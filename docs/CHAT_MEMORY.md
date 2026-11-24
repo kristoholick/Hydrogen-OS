@@ -145,6 +145,17 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
   inside that folder (other linker script and code model). New program: add a file in
   `userspace/apps/src/bin/`, its name in the Makefile's `APPS` and a `module_path` line in `boot/limine.conf`.
   15 deliberate breakages of the parser: 13 caught, 2 change nothing (a later bounds check refuses the file too).
+- **3.5 done (2026-11-25):** `make test-all` = 25 unit tests + 13 QEMU boots. Boot ends with `phase 3 boot complete`.
+  - 14 deliberate breakages, all caught (copy direction flag only after adding a check on entry).
+  - Found by testing: without masking the single-step flag, a program single-stepping into `syscall` stops the kernel;
+    the mask works, and kinds 40/41 of crash-test guard it. QEMU without KVM reports other exceptions than a
+    real CPU in places, so some kinds accept any.
+  - Programs get one number as start argument (`spawn_elf(.., arg)`) until there are command lines.
+- 2026-11-25 owner: "keep working each phase one by one with testing, finding issue, noticing, analyzing and fixing"
+  (done: the rest of the approved Phase 3 plan; Phase 4 needs its own plan first), and wants Hydrogen to run on as
+  many kinds of devices as possible. The three-screen design is settled; don't ask for more choices before Phase 6.
+- VirtualBox was asked about (not installed on the Ryzen). SAFETY.md allows QEMU only, so using it needs the owner's OK.
+- Lesson: very long Bash commands fail on Windows (nothing runs); write files with the Write tool.
 - Lesson: passing `$?`/`|`/quotes through `tools/wsl.ps1` gets mangled by PowerShell; put
   multi-part commands in a script (e.g. `build/run-test-all.sh`, not committed) and run that.
 
@@ -162,6 +173,6 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
 _Answered 2026-11-23: name = **Hydrogen**; Windows features = **all** (map in ARCHITECTURE.md §8);
 chose Phase 3 over the laptop USB boot for now. Phase 3 plan proposed in `docs/PHASE3_PLAN.md`._
 
-- Visual choices from the Design Lab tweaker (panel style, header font, metal accent, selection
-  colour, backdrop mood) to freeze into the design tokens.
+- Visual details: not a question any more (owner, 2026-11-25) — use what the Design Lab shows now; the owner
+  checks screenshots of all three screens in Phase 6.
 - Real-hardware USB boot on the Dell laptop (Phase 2.5) — still to do when on the laptop.

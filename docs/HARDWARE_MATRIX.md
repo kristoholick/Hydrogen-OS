@@ -11,6 +11,7 @@ Nothing is marked above "Not started" until it has been tested.
 | Local APIC + timer | **Working** — xAPIC mode, periodic 100 Hz, PIT-calibrated, RTC-verified (Phase 2) |
 | 8259 PIC | **Working** — remapped and masked (Phase 2) |
 | PIT channel 2 | **Working** — one-shot calibration only (Phase 2) |
+| CPU protections NX, SMEP, SMAP, UMIP | **Working** — KVM on Ryzen 5 5600G and QEMU TCG; SMAP/SMEP proven by fault tests (Phase 3.5) |
 | CMOS RTC | **Working** — seconds register read (Phase 2) |
 | PS/2 keyboard / mouse | Not started |
 | VirtIO blk / net / input / gpu | Not started |

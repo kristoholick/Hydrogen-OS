@@ -10,6 +10,7 @@
 #![no_std]
 
 use core::fmt;
+use core::sync::atomic::{AtomicU64, Ordering};
 
 pub mod sys {
     //! Raw system calls. What they do: `kernel/src/syscall/mod.rs`.
@@ -43,6 +44,18 @@ pub mod sys {
         };
         result
     }
+}
+
+static ARG: AtomicU64 = AtomicU64::new(0);
+
+#[doc(hidden)]
+pub fn set_arg(arg: u64) {
+    ARG.store(arg, Ordering::Relaxed);
+}
+
+/// The number the program was started with (until there are real command lines).
+pub fn arg() -> u64 {
+    ARG.load(Ordering::Relaxed)
 }
 
 /// Write text to the system log. Returns the number of bytes, or a negative error.
@@ -113,11 +126,12 @@ macro_rules! entry {
             ".global _start",
             "_start:",
             "    xor ebp, ebp",
-            "    call {start}",
+            "    call {start}", // rdi = start argument
             "    ud2",
             start = sym start,
         );
-        extern "C" fn start() -> ! {
+        extern "C" fn start(arg: u64) -> ! {
+            $crate::set_arg(arg);
             $crate::exit($main())
         }
     };

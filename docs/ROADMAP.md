@@ -6,8 +6,8 @@ Each phase ends with acceptance tests. The next phase starts only after they pas
 - [x] Read-only host check
 - [x] Planning docs, safety rules, decision log
 - [x] Design Lab (browser prototype of the three realms)
-- [ ] Owner picks visual direction in the Design Lab → frozen into DESIGN_SYSTEM.md tokens
-- [ ] Owner gives top-10 Windows features
+- [x] Visual direction: the three locked screens, details as the Design Lab shows them (owner checks them in Phase 6)
+- [x] Owner gives Windows features: all of them (2026-11-23)
 - [x] Owner installs WSL2 (`wsl --install`), then approves toolchain install
 
 ## Phase 1 — First boot  ✅ done 2026-11-22
@@ -62,9 +62,15 @@ Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF lo
 - [x] 3.4 ELF loader — own parser `crates/hydrogen-elf` (no `unsafe`, 12 host tests incl. 300,000 randomly
   damaged files), programs in `userspace/` shipped as Limine modules; `make test-elf` (hello-a and hello-b
   interleave). Passed 2026-11-25 on the Ryzen (10/10 boots with KVM, 5/5 without). Not yet run on the Dell.
-- [ ] 3.5 Fault isolation
+- [x] 3.5 Fault isolation — exceptions in ring 3 end only that program; `make test-isolation` (43 kinds of crash
+  next to innocent programs, 24 bad system call arguments/CPU states, no leaks), `make test-fault-smap`,
+  `make test-fault-smep`. Passed 2026-11-25 on the Ryzen (10/10 boots with KVM, 5/5 without) —
+  `docs/screenshots/phase3-boot.png`
+- [x] **Accept** (QEMU on the Ryzen): two user processes interleave (3.4); a faulting process is killed without
+  killing the kernel (3.5). `make test-all`: 25 unit tests + 13 QEMU boots pass.
+- [ ] Same suite on the Dell (Intel) — needed before Phase 3 is marked done
 
-## Phase 4 — Hardware
+## Phase 4 — Hardware  (plan proposed: `docs/PHASE4_PLAN.md`, waiting for the owner)
 PCIe enumeration, uACPI, VirtIO (blk, net, input, gpu), PS/2 keyboard/mouse, AHCI.
 **Accept:** device list printed with vendor/device IDs; reads a sector from a VirtIO disk image.
 
@@ -84,6 +90,11 @@ VirtIO-net → e1000, smoltcp, DHCP, DNS, sockets.
 
 ## Phase 8 — Hardware expansion and first bare-metal boot
 NVMe (read-only first), xHCI + USB HID + gamepads, HDA audio, laptop touchpad, USB-stick boot.
+
+## Later — more kinds of devices (owner's goal, 2026-11-25: "work on all type system ... wherever I want")
+Order proposed by Claude, not yet decided: Intel/AMD 64-bit UEFI PCs first (Phase 8), then a port to 64-bit ARM
+after the home screens. New CPU-specific code stays in `kernel/src/arch/`. Not possible: devices locked to their
+maker's software (iPhones, consoles).
 
 ## Phase 9 — Security and maturity
 Permissions, sandboxing, signed updates, Secure Boot, encryption, crash recovery.

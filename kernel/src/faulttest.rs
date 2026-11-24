@@ -46,3 +46,24 @@ pub fn breakpoint() {
     x86_64::instructions::interrupts::int3();
     crate::kprintln!("[hydrogen] fault test: resumed after breakpoint");
 }
+
+/// A kernel bug that touches (or runs) program memory directly must be stopped by the CPU
+/// (SMAP/SMEP). Maps a program page in a scratch address space, then misuses it.
+#[cfg(any(feature = "fault-smap", feature = "fault-smep"))]
+pub fn user_memory() {
+    use crate::arch::x86_64::space::{Access, AddressSpace};
+    crate::kprintln!("[hydrogen] fault test: the kernel touches program memory at 0x400000");
+    let mut space = AddressSpace::new().unwrap();
+    space.map(0x40_0000, Access { write: false, exec: true }).unwrap();
+    space.fill(0x40_0000, &[0xc3]).unwrap(); // `ret`
+    x86_64::instructions::interrupts::disable(); // stay in this address space
+    space.activate();
+    // SAFETY: deliberately wrong — must page-fault although the page is mapped and valid.
+    unsafe {
+        #[cfg(feature = "fault-smap")]
+        core::hint::black_box((0x40_0000 as *const u8).read_volatile());
+        #[cfg(feature = "fault-smep")]
+        core::arch::asm!("call {}", in(reg) 0x40_0000u64);
+    }
+    crate::kprintln!("[hydrogen] fault test: NOT STOPPED");
+}
