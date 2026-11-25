@@ -76,7 +76,13 @@ Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF lo
   emulating an Intel CPU instead (passes; `sysenter` is refused as intended). Emulation is not a real Intel CPU.
 - [ ] Boot on the real Ryzen PC (Phase 2.5)
 
-## Phase 4 — Hardware  (plan proposed: `docs/PHASE4_PLAN.md`, waiting for the owner)
+## Phase 4 — Hardware  ← in progress (plan approved 2026-11-25: `docs/PHASE4_PLAN.md`)
+- [x] 4.1 Device list — ACPI tables (`crates/hydrogen-acpi`) and PCI/PCIe walk (`crates/hydrogen-pci`), both without
+  `unsafe` and host-tested; `make test-pci` compares the kernel's list with QEMU's own on a PCIe machine (16 devices,
+  3 bridges) and on an old one without PCIe (ports). Passed 2026-11-25 (15/15 boots with KVM, 5/5 without).
+- [ ] 4.2 Screen log + steady clock · [ ] 4.3 USB keyboard · [ ] 4.4 USB mouse · [ ] 4.5 Disks, read-only ·
+  [ ] 4.6 Disk, writing · [ ] 4.7 Round-up
+
 PCIe enumeration, uACPI, VirtIO (blk, net, input, gpu), PS/2 keyboard/mouse, AHCI.
 **Accept:** device list printed with vendor/device IDs; reads a sector from a VirtIO disk image.
 

@@ -14,27 +14,29 @@ OUT=$2
 shift 2
 EXPECTS=("$@")
 LIMIT=${TIMEOUT:-40}
+# Optional: MACHINE = QEMU machine type (default q35).
+# Optional: QEMU_EXTRA = more QEMU arguments (devices), MONITOR = QEMU monitor commands to run
+# once the kernel is done, separated by ";" (their output goes to $OUT/monitor.log).
 
 ACCEL="-accel tcg -cpu max"
 [ -r /dev/kvm ] && [ -w /dev/kvm ] && ACCEL="-accel kvm -cpu host"
 
 rm -rf "$OUT" && mkdir -p "$OUT"
 cp /usr/share/OVMF/OVMF_VARS_4M.fd "$OUT/ovmf-vars.fd"
-# QEMU writes the log byte by byte. On /mnt/c each byte takes ~0.4 ms. With KVM that is a useful
-# stand-in for a slow serial port; without it (TCG) it stalls QEMU's own timer, so log to /tmp.
-LOG="$OUT/serial.log"
-case "$ACCEL" in *tcg*) LOG=$(mktemp /tmp/hydrogen-serial-XXXXXX.log) ;; esac
+# The log goes to /tmp and is copied afterwards: writing it to /mnt/c byte by byte is slow (0.4 to
+# 1.5 ms per byte, depending on what else Windows is doing) and made results depend on that.
+LOG=$(mktemp /tmp/hydrogen-serial-XXXXXX.log)
 SOCK=$(mktemp -u /tmp/hydrogen-qemu-XXXXXX.sock)   # unix sockets cannot live on /mnt/c
 
 echo "[test] booting $ISO ($ACCEL), limit ${LIMIT}s"
-timeout $((LIMIT + 10)) qemu-system-x86_64 $ACCEL -M q35 -m 512M -no-reboot \
+timeout $((LIMIT + 10)) qemu-system-x86_64 $ACCEL -M ${MACHINE:-q35} -m 512M -no-reboot \
   -drive if=pflash,unit=0,format=raw,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on \
   -drive if=pflash,unit=1,format=raw,file="$OUT/ovmf-vars.fd" \
   -cdrom "$ISO" \
   -serial file:"$LOG" \
   -display none \
   -monitor unix:"$SOCK",server,nowait \
-  -d cpu_reset,guest_errors -D "$OUT/qemu.log" &
+  -d cpu_reset,guest_errors -D "$OUT/qemu.log" ${QEMU_EXTRA:-} &
 QPID=$!
 
 # wait for the kernel to finish, panic, or the time limit
@@ -47,6 +49,9 @@ done
 sleep 0.5   # let the last pixels land
 
 if kill -0 $QPID 2>/dev/null; then
+  : > "$OUT/monitor.log"
+  IFS=';' read -ra commands <<< "${MONITOR:-}"
+  for c in "${commands[@]}"; do (echo "$c"; sleep 0.3) | socat - UNIX-CONNECT:"$SOCK" >> "$OUT/monitor.log" 2>&1; done
   echo "screendump $OUT/frame.ppm" | socat - UNIX-CONNECT:"$SOCK" >/dev/null 2>&1
   sleep 1
   echo "quit" | socat - UNIX-CONNECT:"$SOCK" >/dev/null 2>&1

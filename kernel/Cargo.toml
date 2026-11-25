@@ -19,12 +19,16 @@ fault-int3 = []
 fault-thread-stack = []
 fault-smap = []
 fault-smep = []
+# Serial port as slow as a real 38400-baud one (make test-slow-serial).
+slow-serial = []
 # Thousands of programs made of random machine code, with a time limit for programs (make fuzz).
 fuzz-user = []
 
 [dependencies]
 hydrogen-mm = { path = "../crates/hydrogen-mm" }
 hydrogen-elf = { path = "../crates/hydrogen-elf" }
+hydrogen-acpi = { path = "../crates/hydrogen-acpi" }
+hydrogen-pci = { path = "../crates/hydrogen-pci" }
 x86_64 = { version = "0.15", default-features = false, features = ["instructions", "abi_x86_interrupt"] }
 limine = "0.6.5"
 spin = "0.12.3"

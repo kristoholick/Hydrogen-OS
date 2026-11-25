@@ -5,6 +5,7 @@
 //! | Range                         | What                                   | Permissions      |
 //! |-------------------------------|----------------------------------------|------------------|
 //! | `HHDM + phys`                 | direct map of RAM, ACPI, framebuffer   | RW, no-exec      |
+//! | `0xffff_c000_0000_0000` +64 GiB| device registers (uncached), firmware tables (read-only) | RW / R, no-exec |
 //! | `0xffff_d000_0000_0000`       | scratch page for self-tests            | RW, no-exec      |
 //! | `0xffff_e000_0000_0000` +1 GiB| kernel heap (grows on demand)          | RW, no-exec      |
 //! | `0xffff_fd00_0000_0000`       | thread stacks: 64 KiB slots, each a guard page + 16 KiB stack (`sched::stack`) | RW, no-exec |
@@ -23,6 +24,8 @@ use x86_64::structures::paging::{
 };
 use x86_64::{PhysAddr, VirtAddr};
 
+pub const MMIO_START: u64 = 0xffff_c000_0000_0000;
+pub const MMIO_MAX: u64 = 64 << 30;
 pub const SCRATCH_VIRT: u64 = 0xffff_d000_0000_0000;
 pub const HEAP_START: u64 = 0xffff_e000_0000_0000;
 pub const HEAP_MAX: u64 = 1 << 30;
@@ -203,18 +206,42 @@ pub fn translate(virt: u64) -> Option<u64> {
     MAPPER.lock().as_ref()?.translate_addr(VirtAddr::new(virt)).map(|p| p.as_u64())
 }
 
-/// Map a device's registers (uncached) into the direct-map area; returns the virtual address.
-pub fn map_mmio(phys: u64, len: u64) -> u64 {
-    let flags = RW_NX | F::NO_CACHE | F::WRITE_THROUGH;
-    let mut p = phys & !(PAGE_SIZE as u64 - 1);
-    while p < phys + len {
-        let v = hhdm() + p;
-        if translate(v).is_none() {
-            map_page(v, p, flags);
-        }
-        p += PAGE_SIZE as u64;
+static NEXT_MMIO: AtomicU64 = AtomicU64::new(MMIO_START);
+
+/// Highest physical address this CPU can map, plus one.
+fn phys_end() -> u64 {
+    // CPUID is always available in 64-bit mode; without the leaf, assume the minimum.
+    let has = core::arch::x86_64::__cpuid(0x8000_0000).eax >= 0x8000_0008;
+    let bits = if has { core::arch::x86_64::__cpuid(0x8000_0008).eax & 0xff } else { 36 };
+    1 << bits.clamp(36, 52)
+}
+
+/// Map physical memory into the device window, at addresses never used before and never reused.
+fn map_window(phys: u64, len: u64, flags: F) -> Option<u64> {
+    const PAGE: u64 = PAGE_SIZE as u64;
+    let first = phys & !(PAGE - 1);
+    let end = phys.checked_add(len)?.checked_next_multiple_of(PAGE)?;
+    if len == 0 || end > phys_end() {
+        return None;
     }
-    hhdm() + phys
+    let size = end - first;
+    let start = NEXT_MMIO.try_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
+        n.checked_add(size).filter(|&e| e <= MMIO_START + MMIO_MAX)
+    }).ok()?;
+    for i in (0..size).step_by(PAGE_SIZE) {
+        map_page(start + i, first + i, flags);
+    }
+    Some(start + (phys - first))
+}
+
+/// Map a device's registers, uncached. `None` if the address is impossible or the window is full.
+pub fn map_mmio(phys: u64, len: u64) -> Option<u64> {
+    map_window(phys, len, RW_NX | F::NO_CACHE | F::WRITE_THROUGH)
+}
+
+/// Map memory the firmware filled in, read-only.
+pub fn map_firmware(phys: u64, len: u64) -> Option<u64> {
+    map_window(phys, len, F::PRESENT | F::NO_EXECUTE)
 }
 
 pub fn is_stack_guard(addr: u64) -> bool {

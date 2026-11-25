@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["kernel", "crates/hydrogen-mm", "crates/hydrogen-elf"]
+members = ["kernel", "crates/hydrogen-mm", "crates/hydrogen-elf", "crates/hydrogen-acpi", "crates/hydrogen-pci"]
 exclude = ["userspace"]
 default-members = ["kernel"]
 

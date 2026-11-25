@@ -32,11 +32,25 @@ use limine::memmap::MEMMAP_USABLE;
 
 const MIB: u64 = 1024 * 1024;
 
+/// Off only in the builds that crash on purpose, to save time: those have nothing to do with it.
+const SELF_TESTS: bool = !cfg!(any(
+    feature = "panic-test",
+    feature = "fault-pagefault",
+    feature = "fault-stack",
+    feature = "fault-int3",
+    feature = "fault-thread-stack",
+    feature = "fault-smap",
+    feature = "fault-smep"
+));
+
 #[unsafe(no_mangle)]
 pub extern "C" fn kmain() -> ! {
     drivers::serial::init();
     kprintln!();
     kprintln!("[hydrogen] Hydrogen kernel online");
+    if cfg!(feature = "slow-serial") {
+        kprintln!("[hydrogen] serial: deliberately slow (test build)");
+    }
 
     if boot::BASE_REVISION.is_supported() {
         kprintln!("[hydrogen] limine base revision {} accepted", limine::BaseRevision::MAX_SUPPORTED);
@@ -97,6 +111,10 @@ extern "C" fn kmain_stage2() -> ! {
     kprintln!("[hydrogen] heap: online at {:#x} ({} small-block pages, {} large pages in use)",
         mm::vmm::HEAP_START, hs.small_pages, hs.large_pages);
 
+    // --- what the firmware says about the machine, and its devices ---
+    let machine = drivers::acpi::init();
+    drivers::pci::init(&machine);
+
     // --- interrupts and timer ---
     pic::disable();
     let a = apic::init();
@@ -139,17 +157,21 @@ extern "C" fn kmain_stage2() -> ! {
     sched::init();
     kprintln!("[hydrogen] sched: boot path is now thread 0 (kmain), idle thread is 1");
     if x86_64::instructions::interrupts::are_enabled() {
-        selftest::threads();
+        if SELF_TESTS {
+            selftest::threads();
+        }
         sched::enable_preemption();
         kprintln!("[hydrogen] sched: preemption on ({} ms time slices)", 1000 / time::HZ);
-        selftest::preemption();
-        selftest::user();
-        kprintln!("[hydrogen] boot modules: {} programs", boot::modules().count());
-        for (name, data) in boot::modules() {
-            kprintln!("[hydrogen]   {} ({} bytes)", name, data.len());
+        if SELF_TESTS {
+            selftest::preemption();
+            selftest::user();
+            kprintln!("[hydrogen] boot modules: {} programs", boot::modules().count());
+            for (name, data) in boot::modules() {
+                kprintln!("[hydrogen]   {} ({} bytes)", name, data.len());
+            }
+            selftest::elf();
+            selftest::isolation();
         }
-        selftest::elf();
-        selftest::isolation();
         #[cfg(feature = "fuzz-user")]
         selftest::fuzz::run();
     } else {

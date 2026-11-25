@@ -80,7 +80,7 @@ pub fn init() -> ApicInfo {
     let mode = if x2apic {
         Mode::X2Apic
     } else {
-        Mode::XApic { base: mm::vmm::map_mmio(phys_base, 4096) }
+        Mode::XApic { base: mm::vmm::map_mmio(phys_base, 4096).expect("cannot map the local APIC") }
     };
     let apic = APIC.call_once(|| Apic { mode });
 

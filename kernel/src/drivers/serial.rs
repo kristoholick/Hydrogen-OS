@@ -73,6 +73,12 @@ impl SerialPort {
                 spins += 1;
             }
             outb(self.base, byte);
+            #[cfg(feature = "slow-serial")]
+            {
+                let start = core::arch::x86_64::_rdtsc();
+                // about 0.26 ms at 3 GHz
+                while core::arch::x86_64::_rdtsc() - start < 800_000 {}
+            }
         }
     }
 }

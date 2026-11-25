@@ -29,3 +29,31 @@ pub unsafe fn inb(port: u16) -> u8 {
     }
     value
 }
+
+/// Write 32 bits to an I/O port.
+///
+/// # Safety
+/// Same requirements as [`outb`].
+#[inline]
+pub unsafe fn outl(port: u16, value: u32) {
+    // SAFETY: caller guarantees ring 0 and exclusive ownership of `port` (see `outb`).
+    unsafe {
+        core::arch::asm!("out dx, eax", in("dx") port, in("eax") value,
+            options(nomem, nostack, preserves_flags));
+    }
+}
+
+/// Read 32 bits from an I/O port.
+///
+/// # Safety
+/// Same requirements as [`inb`].
+#[inline]
+pub unsafe fn inl(port: u16) -> u32 {
+    let value: u32;
+    // SAFETY: caller guarantees ring 0 and exclusive ownership of `port` (see `outb`).
+    unsafe {
+        core::arch::asm!("in eax, dx", in("dx") port, out("eax") value,
+            options(nomem, nostack, preserves_flags));
+    }
+    value
+}

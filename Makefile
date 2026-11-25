@@ -28,7 +28,7 @@ QEMU_BASE  = qemu-system-x86_64 $(ACCEL) -M q35 -m 512M -no-reboot \
              -drive if=pflash,unit=0,format=raw,file=$(OVMF_CODE),readonly=on \
              -drive if=pflash,unit=1,format=raw,file=$(BUILD)/ovmf-vars.fd
 
-.PHONY: all kernel apps iso run debug unit test test-threads test-preempt test-user test-elf test-isolation test-panic test-fault-pagefault test-fault-stack \
+.PHONY: test-selftests test-slow-serial all kernel apps iso run debug unit test test-threads test-preempt test-user test-elf test-isolation test-pci test-panic test-fault-pagefault test-fault-stack \
         test-fault-int3 test-fault-thread-stack test-fault-smap test-fault-smep fuzz test-all limine clean distclean FORCE
 
 all: iso
@@ -92,49 +92,78 @@ debug: iso $(BUILD)/ovmf-vars.fd
 
 # ---------- automated tests (headless, time-limited) ----------
 unit:
-	cargo test -p hydrogen-mm -p hydrogen-elf --target x86_64-unknown-linux-gnu
+	cargo test -p hydrogen-mm -p hydrogen-elf -p hydrogen-acpi -p hydrogen-pci --target x86_64-unknown-linux-gnu
 
+E_BOOT := "Hydrogen kernel online" "IDT loaded" "paging: own page tables active" "now on kernel stack" \
+	"selftest pmm: ok" "selftest paging: ok" "selftest heap: ok" "timer ok" "selftest threads: ok" \
+	"phase 3 boot complete"
 test: iso
-	@bash tools/test-boot.sh $(ISO) $(BUILD)/test \
-		"Hydrogen kernel online" "IDT loaded" "paging: own page tables active" "now on kernel stack" \
-		"selftest pmm: ok" "selftest paging: ok" "selftest heap: ok" "timer ok" "selftest threads: ok" \
-		"phase 3 boot complete"
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test $(E_BOOT)
 
 # Phase 3.1: two kernel threads alternate A1 B1 A2 B2 A3 B3 (the kernel checks the exact order).
+E_THREADS := "sched: boot path is now thread 0" "thread A (id 2): step 1" "thread B (id 3): step 1" \
+	"thread A (id 2): step 3" "thread B (id 3): step 3" "selftest threads: ok (A1 B1 A2 B2 A3 B3;"
 test-threads: iso
-	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-threads \
-		"sched: boot path is now thread 0" "thread A (id 2): step 1" "thread B (id 3): step 1" \
-		"thread A (id 2): step 3" "thread B (id 3): step 3" "selftest threads: ok (A1 B1 A2 B2 A3 B3;"
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-threads $(E_THREADS)
 
 # Phase 3.2: the timer takes the CPU from endless loops, sleeps end on time, forced switches
 # corrupt nothing, finished threads leak nothing, the idle thread runs when all others sleep.
+E_PREEMPT := "sched: preemption on (10 ms time slices)" "locks mask interrupts" \
+	"clock kept time while printing" "3 threads in endless loops got" \
+	"results under forced switches, 0 wrong" "50 threads started and finished, no memory leaked" \
+	"idle thread took" "phase 3 boot complete"
 test-preempt: iso
-	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-preempt \
-		"sched: preemption on (10 ms time slices)" "locks mask interrupts" \
-		"clock kept time while printing" "3 threads in endless loops got" \
-		"results under forced switches, 0 wrong" "50 threads started and finished, no memory leaked" \
-		"idle thread took" "phase 3 boot complete"
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-preempt $(E_PREEMPT)
 
 # Phase 3.3: programs in ring 3 with private memory, talking to the kernel through system calls.
+E_USER := "user mode: syscall door open; SMEP on, SMAP on" "] hello from ring 3" "exited with code 0" \
+	"hello ran in ring 3, exit code 0" "registers intact across system calls" \
+	"500 ms of nothing but system calls" "segment registers do not leak" "programs flooded the log" \
+	"each saw only its own data" "50 programs started and finished, no memory leaked" \
+	"phase 3 boot complete"
 test-user: iso
-	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-user 		"user mode: syscall door open; SMEP on, SMAP on" "] hello from ring 3" "exited with code 0" 		"hello ran in ring 3, exit code 0" "registers intact across system calls" 		"500 ms of nothing but system calls" \
-		"segment registers do not leak" "programs flooded the log" "each saw only its own data" "50 programs started and finished, no memory leaked" "phase 3 boot complete"
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-user $(E_USER)
 
 # Phase 3.4: two separate program files are loaded and take turns; the loader gets memory right.
+E_ELF := "boot modules: 5 programs" "] A5" "] B5" "constants, variables and stack are fine" \
+	"selftest elf: ok (hello-a and hello-b" "selftest elf: ok (memory-check" \
+	"selftest elf: ok (damaged program files refused" "selftest elf: ok (no memory leaked" \
+	"phase 3 boot complete"
 test-elf: iso
-	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-elf \
-		"boot modules: 5 programs" "] A5" "] B5" "constants, variables and stack are fine" \
-		"selftest elf: ok (hello-a and hello-b" "selftest elf: ok (memory-check" \
-		"selftest elf: ok (damaged program files refused" "selftest elf: ok (no memory leaked" "phase 3 boot complete"
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-elf $(E_ELF)
 	@bash tools/check-interleave.sh $(BUILD)/test-elf/serial.log
 
 # Phase 3.5: programs that misbehave are ended; the kernel and the other programs carry on.
+E_ISOLATION := "KILLED: PAGE FAULT at 0xffffffff80000000" "KILLED: DIVIDE ERROR" "KILLED: INVALID OPCODE" \
+	"KILLED: GENERAL PROTECTION FAULT" "58 kinds of crash, each ended only its own program" \
+	"] [hydrogen] forged kernel line??[31mred" "bad system call arguments come back as errors" \
+	"crashed programs leaked no memory" "phase 3 boot complete"
 test-isolation: iso
-	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-isolation \
-		"KILLED: PAGE FAULT at 0xffffffff80000000" "KILLED: DIVIDE ERROR" "KILLED: INVALID OPCODE" \
-		"KILLED: GENERAL PROTECTION FAULT" "58 kinds of crash, each ended only its own program" \
-		"] [hydrogen] forged kernel line??[31mred" "bad system call arguments come back as errors" \
-		"crashed programs leaked no memory" "phase 3 boot complete"
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-isolation $(E_ISOLATION)
+
+# Phase 4.1: the kernel's device list must match QEMU's own, including devices behind bridges.
+PCI_DEVICES := -device pcie-root-port,id=rp1,chassis=1,slot=1 -device pcie-root-port,id=rp2,chassis=2,slot=2 \
+               -device qemu-xhci -device nec-usb-xhci,bus=rp1 -device virtio-rng-pci -device e1000 \
+               -device pcie-pci-bridge,id=br1,bus=rp2 -device rtl8139,bus=br1,addr=3 -device intel-hda \
+               -device i6300esb,bus=br1,addr=9
+test-pci: iso
+	@QEMU_EXTRA="$(PCI_DEVICES)" MONITOR="info pci" bash tools/test-boot.sh $(ISO) $(BUILD)/test-pci \
+		"pci: express configuration space" "USB 3 controller (xHCI), MSI-X" "acpi: " "phase 3 boot complete"
+	@python3 tools/check-pci.py $(BUILD)/test-pci/serial.log $(BUILD)/test-pci/monitor.log
+	@MACHINE=pc QEMU_EXTRA="-device pci-bridge,id=b1,chassis_nr=1 -device rtl8139,bus=b1,addr=5 -device e1000" MONITOR="info pci" 		bash tools/test-boot.sh $(ISO) $(BUILD)/test-pci-ports "pci: no express configuration space, using ports" "phase 3 boot complete"
+	@python3 tools/check-pci.py $(BUILD)/test-pci-ports/serial.log $(BUILD)/test-pci-ports/monitor.log
+
+# The serial port of a real PC is slow. This build waits as long per byte as 38400 baud takes, which
+# shows code that keeps interrupts off while printing (the timer would lose ticks).
+test-slow-serial: $(BUILD)/hydrogen-slow-serial.iso
+	@TIMEOUT=90 bash tools/test-boot.sh $< $(BUILD)/test-slow-serial "serial: deliberately slow" \
+		"clock kept time while printing" "programs flooded the log" "phase 3 boot complete"
+
+# All of the above in one boot (what test-all uses): same checks, a sixth of the time.
+test-selftests: iso
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-selftests \
+		$(E_BOOT) $(E_THREADS) $(E_PREEMPT) $(E_USER) $(E_ELF) $(E_ISOLATION)
+	@bash tools/check-interleave.sh $(BUILD)/test-selftests/serial.log
 
 test-panic: $(BUILD)/hydrogen-panic-test.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-panic "PANIC at kernel/src/main.rs"
@@ -163,7 +192,7 @@ test-fault-smep: $(BUILD)/hydrogen-fault-smep.iso
 fuzz: $(BUILD)/hydrogen-fuzz-user.iso
 	@TIMEOUT=900 bash tools/test-boot.sh $< $(BUILD)/fuzz "fuzz: ok (20000 programs" "phase 3 boot complete"
 
-test-all: unit test test-threads test-preempt test-user test-elf test-isolation test-panic test-fault-pagefault test-fault-stack \
+test-all: unit test-selftests test-slow-serial test-pci test-panic test-fault-pagefault test-fault-stack \
           test-fault-int3 test-fault-thread-stack test-fault-smap test-fault-smep
 	@echo "[make] ALL TESTS PASSED"
 

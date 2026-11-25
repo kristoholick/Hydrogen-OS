@@ -1,4 +1,4 @@
-# Phase 4 plan — Hardware for Hydrogen (PROPOSED 2026-11-25, revised for the target PC, waiting for the owner's yes)
+# Phase 4 plan — Hardware for Hydrogen (APPROVED by the owner 2026-11-25, with the recommended choices; VirtualBox still needs its own OK)
 
 **Goal (from ROADMAP.md):** find the devices in the machine and talk to the first ones.
 **Accept:** device list printed with vendor/device IDs; reads a sector from a VirtIO disk image.

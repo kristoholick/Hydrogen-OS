@@ -163,6 +163,15 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
   - Known limits: allocating or freeing many megabytes holds the heap lock with interrupts off.
 - 2026-11-25 owner: Hydrogen will be installed only on the Ryzen desktop, no other PC is available (the Dell is
   gone). `make test-isolation`'s checks also pass with QEMU emulating an Intel CPU.
+- **4.1 done (2026-11-25):** 25 deliberate breakages of the two parsers, all caught (one only after adding a test).
+  Device registers are mapped in their own window at `0xffff_c000_0000_0000` (64-bit device addresses could have
+  collided with other kernel regions in the direct map). Firmware tables are only read if inside the memory map.
+- Tests no longer depend on how slow `/mnt/c` is (measured 0.4 to 1.5 ms per byte, changes with what Windows does):
+  logs go to `/tmp`; `make test-slow-serial` imitates a real 38400-baud port instead. `test-all` boots the normal
+  ISO once (`test-selftests`), crash variants skip the self-tests: about 230 s instead of 310-385 s.
+- 2026-11-25 owner asked to decode a Windows 11 ISO (`Windows 11/`, git-ignored, never commit) with REA and copy its
+  features. Declined: no decompiling or copying of Windows code (license, and Hydrogen must stay original). Features
+  are built from public documentation; the list is in ARCHITECTURE.md section 8.
 - REA (reverse-engineering tool) is installed on the Ryzen outside the repo; not needed for Hydrogen.
 - 2026-11-25 owner: "keep working each phase one by one with testing, finding issue, noticing, analyzing and fixing"
   (done: the rest of the approved Phase 3 plan; Phase 4 needs its own plan first), and wants Hydrogen to run on as

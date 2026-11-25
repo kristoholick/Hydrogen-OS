@@ -4,7 +4,7 @@
 
 use limine::request::{
     BootloaderInfoRequest, ExecutableAddressRequest, FramebufferRequest, HhdmRequest, MemmapRequest,
-    ModulesRequest,
+    ModulesRequest, RsdpRequest,
 };
 use limine::{BaseRevision, RequestsEndMarker, RequestsStartMarker};
 
@@ -37,6 +37,23 @@ pub static HHDM: HhdmRequest = HhdmRequest::new();
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static EXECUTABLE_ADDRESS: ExecutableAddressRequest = ExecutableAddressRequest::new();
+
+/// Where the firmware put the root of its ACPI tables.
+#[used]
+#[unsafe(link_section = ".limine_requests")]
+static RSDP: RsdpRequest = RsdpRequest::new();
+
+/// Physical address of the ACPI root pointer. (The protocol revision decides whether Limine
+/// gives a physical or a direct-map address; both are accepted.)
+pub fn rsdp_address() -> Option<u64> {
+    let hhdm = HHDM.response()?.offset;
+    let a = RSDP.response()?.address as u64;
+    Some(if a >= hhdm { a - hhdm } else { a }).filter(|&a| a != 0)
+}
+
+pub fn memory_map() -> &'static [&'static limine::memmap::Entry] {
+    MEMMAP.response().map_or(&[], |m| m.entries())
+}
 
 /// Files loaded next to the kernel: the user programs (until there is a file system).
 #[used]

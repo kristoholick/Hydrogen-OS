@@ -8,3 +8,5 @@ frame.ppm
 frame.png
 # local Claude settings
 .claude/settings.local.json
+# never part of Hydrogen (somebody else's software)
+Windows 11/
