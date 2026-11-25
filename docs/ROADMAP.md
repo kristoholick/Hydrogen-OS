@@ -39,9 +39,9 @@ Results (`make test-all`, QEMU 10.2.1 + KVM):
 - [x] Every run checked for triple-fault resets (none); only `build/` and `target/` written
 - Screenshots: `docs/screenshots/phase2-boot.png`, `phase2-page-fault.png`, `phase2-stack-overflow.png`
 
-## Phase 2.5 — First boot on real hardware (owner's Dell Latitude 3400)  ← when on the laptop
-Owner writes the ISO to a USB stick (Rufus) and disables Secure Boot. No disk drivers exist yet, so the
-internal SSD cannot be touched. Check: boots, screen draws, timer check passes on real hardware.
+## Phase 2.5 — First boot on real hardware (owner's desktop)  ← needs the owner's OK, see SAFETY.md 4b
+Owner writes the ISO to a USB stick (Rufus). The build has no disk drivers, so the internal SSD cannot be
+touched. Useful only once the log also appears on the screen. Check: boots, screen draws, timer check passes on real hardware.
 
 ## Phase 3 — Multitasking  ← in progress (plan approved 2026-11-23: `docs/PHASE3_PLAN.md`)
 Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF loader.
@@ -72,7 +72,9 @@ Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF lo
   allocations), log flooding stopped the clock, segment registers leaked between programs, `sysenter` entry and
   local descriptor table/global translations left as firmware set them. New: `make fuzz` (20,000 programs of random
   machine code; passed with 3 seeds), 58 kinds of crash, 1.1 GiB heap test. `make test-all`: 30 unit tests + 13 QEMU boots.
-- [ ] Same suite on the Dell (Intel) — needed before Phase 3 is marked done
+- [x] Intel check: the Dell is no longer available (owner, 2026-11-25), so the isolation test runs with QEMU
+  emulating an Intel CPU instead (passes; `sysenter` is refused as intended). Emulation is not a real Intel CPU.
+- [ ] Boot on the real Ryzen PC (Phase 2.5)
 
 ## Phase 4 — Hardware  (plan proposed: `docs/PHASE4_PLAN.md`, waiting for the owner)
 PCIe enumeration, uACPI, VirtIO (blk, net, input, gpu), PS/2 keyboard/mouse, AHCI.
@@ -93,7 +95,8 @@ VirtIO-net → e1000, smoltcp, DHCP, DNS, sockets.
 **Accept:** DHCP lease + DNS lookup + HTTP GET in QEMU.
 
 ## Phase 8 — Hardware expansion and first bare-metal boot
-NVMe (read-only first), xHCI + USB HID + gamepads, HDA audio, laptop touchpad, USB-stick boot.
+Target: the owner's desktop (HARDWARE_MATRIX.md). Realtek Ethernet, HDA audio, gamepads, AHCI, installer for a
+**separate** disk. (USB keyboard/mouse and read-only NVMe are proposed for Phase 4.)
 
 ## Later — more kinds of devices (owner's goal, 2026-11-25: "work on all type system ... wherever I want")
 Order proposed by Claude, not yet decided: Intel/AMD 64-bit UEFI PCs first (Phase 8), then a port to 64-bit ARM

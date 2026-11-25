@@ -161,6 +161,8 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
   - `sysenter`, local descriptor table and global-translation changes cannot be proven on the Ryzen (AMD refuses
     `sysenter` anyway): check on the Dell.
   - Known limits: allocating or freeing many megabytes holds the heap lock with interrupts off.
+- 2026-11-25 owner: Hydrogen will be installed only on the Ryzen desktop, no other PC is available (the Dell is
+  gone). `make test-isolation`'s checks also pass with QEMU emulating an Intel CPU.
 - REA (reverse-engineering tool) is installed on the Ryzen outside the repo; not needed for Hydrogen.
 - 2026-11-25 owner: "keep working each phase one by one with testing, finding issue, noticing, analyzing and fixing"
   (done: the rest of the approved Phase 3 plan; Phase 4 needs its own plan first), and wants Hydrogen to run on as
@@ -172,11 +174,10 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
 
 ## 7. What's next
 
-1. **Phase 2.5 — first boot on the real laptop.** Owner writes the ISO to a USB stick (Rufus) and
-   disables Secure Boot. No disk drivers exist yet, so the SSD can't be touched.
-2. **Phase 3 — multitasking:** threads, context switching, scheduler, ring-3 processes,
-   `syscall`/`sysret`, ELF loader. Plan it with the owner first.
-3. Later: hardware (PCIe, ACPI, VirtIO, input, storage) → file system + shell → **compositor and
+1. **Phase 4 — hardware** (`docs/PHASE4_PLAN.md`, waiting for the owner's yes): device list, screen log + steady
+   clock, USB keyboard and mouse, read-only disks.
+2. **Phase 2.5 — first boot on the owner's desktop** from a USB stick, best after 4.2; needs the owner's OK.
+3. Later: file system + shell → **compositor and
    the three home screens (Phase 6)** → networking → USB/audio/NVMe → security.
 
 ## 8. Still open (ask the owner)
@@ -186,4 +187,7 @@ chose Phase 3 over the laptop USB boot for now. Phase 3 plan proposed in `docs/P
 
 - Visual details: not a question any more (owner, 2026-11-25) — use what the Design Lab shows now; the owner
   checks screenshots of all three screens in Phase 6.
-- Real-hardware USB boot on the Dell laptop (Phase 2.5) — still to do when on the laptop.
+- First real boot on the owner's desktop (SAFETY.md 4b): OK, backup, recovery USB, spare USB stick.
+- A separate disk for installing Hydrogen later.
+- Branch `claude/modest-carson-aetal7` on GitHub: an older parallel version of step 3.1 by another Claude session,
+  superseded; delete it or keep it?

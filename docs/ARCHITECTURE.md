@@ -68,7 +68,7 @@ Pointer events pass through for mouse-first realms (Aether).
 
 ## 7. Hardware strategy
 1. QEMU virtual devices (VirtIO blk/net/gpu/input, PS/2, AHCI, NVMe, xHCI, e1000, HDA).
-2. Owner's laptop (see HARDWARE_MATRIX.md). Hard parts: I2C-HID touchpad, Intel Wi-Fi, UHD 620 acceleration.
+2. Owner's desktop (see HARDWARE_MATRIX.md). Hard parts: USB Wi-Fi without documentation, Radeon acceleration.
 3. Common devices on other PCs.
 4. Long term: a LinuxKPI-style compatibility shim (as FreeBSD does) to reuse Linux GPU/Wi-Fi drivers.
 

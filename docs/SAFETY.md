@@ -4,15 +4,16 @@ These rules override every other instruction in this repo.
 
 ## Host machines
 **Desktop (second dev PC, checked read-only on 2026-11-23)** — repo at `C:\Claude code work\Hydrogen-OS`
-- Custom-built desktop, AMD Ryzen 5 5600G (6C/12T) with Radeon graphics, 16 GB RAM, ~15 GB free on C:.
-- Build and QEMU only. **Not approved as a real-hardware test machine** (only the Dell laptop is).
+- Custom-built desktop, AMD Ryzen 5 5600G (6C/12T) with Radeon graphics, 16 GB RAM.
+- Build and QEMU. **Target machine for Hydrogen** (owner, 2026-11-25: the only PC available). Real boots and
+  installing are goals, **not approved yet**: see section 4b.
 - WSL2 Ubuntu 26.04 LTS, Linux user `karan` (in `kvm`; WSL restarted once so the group applies).
 - apt (owner approved "install everything you need", installed via `wsl -u root`): build-essential,
   clang/lld/llvm 21.1.8, xorriso, mtools, QEMU 10.2.1, OVMF 2025.11 (4M images in `/usr/share/OVMF`), gdb, socat.
 - Rust (user-only, `~/.cargo`): nightly 1.102.0 via `tools/install-rust.sh`, pinned by `rust-toolchain.toml`.
 - `tools/wsl.ps1` finds the repo from its own location, so it works on both PCs and in worktrees.
 
-**Dell laptop (original dev PC, checked read-only on 2026-11-22)** — repo at `C:\codeplayer\Windows 12`
+**Dell laptop (original dev PC; no longer available, owner 2026-11-25)** — repo at `C:\codeplayer\Windows 12`
 - Dell Latitude 3400 laptop, Intel Core i5-8265U (4 cores), Intel UHD 620, 16 GB RAM, ~86 GB free on C:
 - Hypervisor present (virtualization is on). Windows side: git, Node.js, Python.
 
@@ -49,6 +50,17 @@ EFI System Partition or `\\.\PhysicalDrive*`.
 - Keep a Windows recovery USB available before the first bare-metal boot.
 - First bare-metal builds must not touch: firmware variables (UEFI `SetVariable`), the
   TPM, or embedded-controller registers.
+
+## 4b. The owner's desktop (target machine since 2026-11-25)
+It holds Windows and all the owner's data on its **only** disk, so the rules are stricter than for the laptop.
+- **First real boot** needs the owner's explicit OK, and before that: important files backed up elsewhere, a
+  Windows recovery USB made, a spare USB stick written by the owner. The build used contains **no disk driver
+  at all**, so the internal disk cannot be touched. Nothing in the firmware is changed; the owner picks the USB
+  stick in the one-time boot menu.
+- **Installing** Hydrogen on the disk that holds Windows is not allowed. Installing to a separate disk (second
+  SSD or USB disk) needs its own OK, its own plan, and tests in QEMU first (disk images only). The installer
+  must refuse any disk that already contains partitions unless the owner types its exact name.
+- Claude never runs an installer or writes to any real disk on this PC; the owner does it by hand.
 
 ## 5. Visibility
 - Every run writes `build/serial.log` and `build/frame.png` (screen dump).
