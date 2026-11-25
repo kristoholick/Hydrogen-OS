@@ -19,6 +19,8 @@ fault-int3 = []
 fault-thread-stack = []
 fault-smap = []
 fault-smep = []
+# Thousands of programs made of random machine code, with a time limit for programs (make fuzz).
+fuzz-user = []
 
 [dependencies]
 hydrogen-mm = { path = "../crates/hydrogen-mm" }

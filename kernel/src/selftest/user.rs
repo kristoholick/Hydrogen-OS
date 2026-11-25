@@ -26,11 +26,14 @@ macro_rules! program {
 program!(hello_program, "user_hello", "user_hello_end");
 program!(registers_program, "user_registers", "user_registers_end");
 program!(storm_program, "user_storm", "user_storm_end");
+program!(segments_program, "user_segments", "user_segments_end");
+program!(flood_program, "user_flood", "user_flood_end");
 program!(memory_program, "user_memory", "user_memory_end");
 
 core::arch::global_asm!(
     ".pushsection .rodata.user_programs, \"a\"",
     // --- log("hello from ring 3"), exit(0)
+    ".global user_hello",
     "user_hello:",
     "    mov eax, 0",
     "    lea rdi, [rip + 2f]",
@@ -49,10 +52,12 @@ core::arch::global_asm!(
     "    mov edi, 1",
     "    syscall",
     "2:  .ascii \"hello from ring 3\"",
+    ".global user_hello_end",
     "user_hello_end:",
     //
     // --- for 300 ms: every register except rax/rcx/r11 must survive system calls and forced
     //     switches; unknown calls must fail; exit(7) if all is well
+    ".global user_registers",
     "user_registers:",
     "    mov eax, 5",
     "    syscall",
@@ -135,10 +140,12 @@ core::arch::global_asm!(
     "9:  mov eax, 1",
     "    mov edi, 1",
     "    syscall",
+    ".global user_registers_end",
     "user_registers_end:",
     //
     // --- nothing but system calls for 500 ms, so timer interrupts land all over the entry and
     //     exit code; exit(calls >= 10000)
+    ".global user_storm",
     "user_storm:",
     "    mov eax, 5",
     "    syscall",
@@ -154,10 +161,53 @@ core::arch::global_asm!(
     "    setae dil",
     "    mov eax, 1",
     "    syscall",
+    ".global user_storm_end",
     "user_storm_end:",
+    //
+    // --- segment registers must be clean at the start; then change them all and sleep a while
+    ".global user_segments",
+    "user_segments:",
+    "    mov ax, ds",
+    "    mov bx, es",
+    "    or eax, ebx",
+    "    mov bx, fs",
+    "    or eax, ebx",
+    "    mov bx, gs",
+    "    or eax, ebx",
+    "    and eax, 0xffff",
+    "    mov edi, eax",
+    "    mov ax, ss",
+    "    mov ds, ax",
+    "    mov es, ax",
+    "    mov fs, ax",
+    "    mov gs, ax",
+    "    mov r12d, edi",
+    "    mov eax, 3",
+    "    mov edi, 30",
+    "    syscall",
+    "    mov edi, r12d",
+    "    mov eax, 1",
+    "    syscall",
+    ".global user_segments_end",
+    "user_segments_end:",
+    //
+    // --- log 1000 characters at once
+    ".global user_flood",
+    "user_flood:",
+    "    mov eax, 0",
+    "    lea rdi, [rip + 2f]",
+    "    mov esi, 1000",
+    "    syscall",
+    "    xor edi, edi",
+    "    mov eax, 1",
+    "    syscall",
+    "2:  .fill 1000, 1, 0x66",
+    ".global user_flood_end",
+    "user_flood_end:",
     //
     // --- fresh memory must be all zero; then fill a stack page with our pid, sleep so others run,
     //     check it; sleep must not be early
+    ".global user_memory",
     "user_memory:",
     "    lea rdi, [rsp - 61440]", // 15 of the 16 stack pages
     "    xor eax, eax",
@@ -196,6 +246,7 @@ core::arch::global_asm!(
     "8:  mov eax, 1",
     "    mov edi, -1",
     "    syscall",
+    ".global user_memory_end",
     "user_memory_end:",
     ".popsection",
 );
@@ -204,6 +255,8 @@ pub fn run() {
     hello();
     registers();
     storm();
+    segments();
+    flood();
     private_memory();
     no_leaks();
 }
@@ -239,6 +292,26 @@ fn storm() {
     let pid = proc::spawn_flat("storm", storm_program()).expect("cannot start program");
     assert_eq!(proc::wait(pid, 5000), ExitStatus::Exited(1), "system call storm failed");
     kprintln!("[hydrogen] selftest user: ok (500 ms of nothing but system calls)");
+}
+
+/// What one program leaves in the segment registers must not be visible to the next.
+fn segments() {
+    let pids: [_; 3] = core::array::from_fn(|_| proc::spawn_flat("segments", segments_program()).expect("cannot start"));
+    for pid in pids {
+        assert_eq!(proc::wait(pid, 2000), ExitStatus::Exited(0), "a program saw another one's segment registers");
+    }
+    kprintln!("[hydrogen] selftest user: ok (segment registers do not leak between programs)");
+}
+
+/// Programs that log a lot at once (more than the serial buffer holds) must not stop the clock.
+fn flood() {
+    let (counted, real) = super::keeps_time(|| {
+        let pids: [_; 6] = core::array::from_fn(|_| proc::spawn_flat("flood", flood_program()).expect("cannot start"));
+        for pid in pids {
+            assert_eq!(proc::wait(pid, 30_000), ExitStatus::Exited(0));
+        }
+    });
+    kprintln!("[hydrogen] selftest user: ok (clock kept time while 6 programs flooded the log: {} ticks counted, {} real)", counted, real);
 }
 
 /// Four copies write different values to the same addresses.

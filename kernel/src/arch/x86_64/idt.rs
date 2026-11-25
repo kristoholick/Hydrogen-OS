@@ -73,6 +73,7 @@ fn fatal(name: &str, f: &InterruptStackFrame, code: Option<u64>) -> ! {
 /// An exception in ring 3 ends that program; in the kernel it is fatal.
 fn exception(name: &'static str, f: &InterruptStackFrame, code: Option<u64>) {
     if from_user(f) {
+        close_smap();
         interrupts::enable(); // on the program's own kernel stack, no lock held
         match code {
             Some(c) => user_fault(name, f, format_args!(" (error code {c:#x})")),
@@ -83,7 +84,6 @@ fn exception(name: &'static str, f: &InterruptStackFrame, code: Option<u64>) {
 }
 
 fn user_fault(name: &'static str, f: &InterruptStackFrame, details: fmt::Arguments) -> ! {
-    close_smap();
     crate::proc::kill_current(name, format_args!("{} rip={:#x}", details, f.instruction_pointer.as_u64()))
 }
 
@@ -124,6 +124,7 @@ extern "x86-interrupt" fn nmi(f: InterruptStackFrame) {
 
 extern "x86-interrupt" fn debug(f: InterruptStackFrame) {
     if from_user(&f) {
+        close_smap();
         // Interrupts stay off: this runs on the shared emergency stack, so nobody else may run
         // before the program is gone.
         user_fault("DEBUG", &f, format_args!(""))
@@ -138,6 +139,7 @@ extern "x86-interrupt" fn breakpoint(f: InterruptStackFrame) {
 extern "x86-interrupt" fn page_fault(f: InterruptStackFrame, code: PageFaultErrorCode) {
     let addr = Cr2::read_raw(); // before anything can cause another page fault
     if from_user(&f) {
+        close_smap();
         interrupts::enable();
         user_fault("PAGE FAULT", &f, format_args!(" at {:#x} ({:?})", addr, code));
     }
@@ -176,6 +178,10 @@ extern "x86-interrupt" fn timer_interrupt(f: InterruptStackFrame) {
     // Acknowledge first: the scheduler may switch to another thread, and without the EOI that
     // thread would never see another timer interrupt.
     super::apic::eoi();
+    #[cfg(feature = "fuzz-user")]
+    if from_user(&f) && crate::proc::over_time_limit() {
+        crate::proc::kill_current("TIME LIMIT", format_args!(""));
+    }
     crate::sched::on_tick();
 }
 

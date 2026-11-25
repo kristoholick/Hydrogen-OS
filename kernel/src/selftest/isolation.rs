@@ -13,12 +13,13 @@ const PF: &str = "PAGE FAULT";
 const GP: &str = "GENERAL PROTECTION FAULT";
 const UD: &str = "INVALID OPCODE";
 const DB: &str = "DEBUG";
-const CRASHES: [&str; 43] = [
+const CRASHES: [&str; 58] = [
     PF, PF, PF, PF, PF, PF, "DIVIDE ERROR", UD, GP, GP, // 1-10
     GP, GP, GP, GP, GP, GP, ANY, PF, UD, "DEVICE NOT AVAILABLE", // 11-20
     DB, DB, GP, GP, GP, GP, GP, GP, GP, GP, // 21-30
     PF, PF, ANY, ANY, ANY, GP, GP, GP, GP, ANY, // 31-40
-    ANY, PF, ANY, // 41-43
+    ANY, PF, ANY, ANY, ANY, GP, GP, UD, GP, GP, // 41-50
+    GP, GP, GP, GP, GP, GP, GP, GP, // 51-58
 ];
 
 pub fn run() {
@@ -32,7 +33,7 @@ fn crash(kind: usize) -> ExitStatus {
     proc::wait(pid, 5000)
 }
 
-/// 43 kinds of crash, each next to innocent programs, which must finish undisturbed.
+/// Every kind of crash, each next to innocent programs, which must finish undisturbed.
 fn crashes() {
     let mut bystanders: Vec<_> = [start("hello-a"), start("hello-b")].into();
     let wrong: Vec<_> = CRASHES

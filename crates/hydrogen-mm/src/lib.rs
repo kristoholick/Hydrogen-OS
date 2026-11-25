@@ -7,6 +7,7 @@
 
 pub mod bitmap;
 pub mod heap;
+pub mod runs;
 
 /// Size of one physical frame / virtual page.
 pub const PAGE_SIZE: usize = 4096;

@@ -2,6 +2,8 @@
 //! which the headless tests turn into a pass/fail.
 
 mod elf;
+#[cfg(feature = "fuzz-user")]
+pub mod fuzz;
 mod isolation;
 mod user;
 
@@ -81,6 +83,13 @@ pub fn heap() {
     let after = heap::stats();
     assert_eq!(after.live, base.live, "heap allocations leaked");
     assert_eq!(after.bytes_in_use, base.bytes_in_use, "heap bytes leaked");
+    // Over the kernel's lifetime far more than the 1 GiB heap region is allocated and freed again.
+    for _ in 0..1100 {
+        let big = alloc::vec![1u8; 1 << 20];
+        core::hint::black_box(&big);
+    }
+    assert_eq!(heap::stats().bytes_in_use, base.bytes_in_use, "heap bytes leaked");
+    kprintln!("[hydrogen] selftest heap: ok (1.1 GiB allocated and freed again, addresses reused)");
     kprintln!("[hydrogen] selftest heap: ok (Vec 10k, Box, String, BTreeMap 1k, 1 MiB buffer; no leaks)");
 }
 
@@ -170,9 +179,8 @@ fn locks_mask_interrupts() {
     kprintln!("[hydrogen] selftest preempt: ok (locks mask interrupts, also when nested)");
 }
 
-/// Printing must not hold interrupts off long enough to lose timer ticks. Compares the tick
-/// counter with the CPU's own cycle counter, first while quiet, then while printing.
-fn clock_while_printing() {
+/// Run `f` and compare the tick counter with the CPU's cycle counter: (ticks counted, real ticks).
+fn clock_during(f: impl FnOnce()) -> (u64, u64) {
     let now = || {
         // SAFETY: rdtsc exists on every x86-64 CPU and has no side effects.
         (time::ticks(), unsafe { core::arch::x86_64::_rdtsc() })
@@ -182,12 +190,33 @@ fn clock_while_printing() {
     sched::sleep_ms(200);
     let (t1, c1) = now();
     let cycles_per_tick = (c1 - c0) / (t1 - t0);
-    for i in 1..=6 {
-        kprintln!("[hydrogen] clock check, line {} of 6: printing must not stop the clock", i);
-    }
+    f();
     let (t2, c2) = now();
-    let (counted, real) = (t2 - t1, (c2 - c1) / cycles_per_tick);
-    assert!(counted.abs_diff(real) <= 2, "clock lost time while printing: counted {counted} ticks, really {real}");
+    (t2 - t1, (c2 - c1) / cycles_per_tick)
+}
+
+/// Like `clock_during`, and fails if the clock loses time in three attempts in a row. A busy host
+/// can pause the virtual CPU for longer than a tick now and then (one port write took up to 14 ms
+/// when measured); a kernel that blocks the timer loses time in every attempt.
+fn keeps_time(mut f: impl FnMut()) -> (u64, u64) {
+    for attempt in 1..=3 {
+        let (counted, real) = clock_during(&mut f);
+        if counted.abs_diff(real) <= 2 + real / 50 {
+            return (counted, real);
+        }
+        kprintln!("[hydrogen] clock check, attempt {} of 3: {} ticks counted, {} real", attempt, counted, real);
+    }
+    panic!("something stops the clock");
+}
+
+/// Printing must not hold interrupts off long enough to lose timer ticks. Compares the tick
+/// counter with the CPU's own cycle counter, first while quiet, then while printing.
+fn clock_while_printing() {
+    let (counted, real) = keeps_time(|| {
+        for i in 1..=6 {
+            kprintln!("[hydrogen] clock check, line {} of 6: printing must not stop the clock", i);
+        }
+    });
     kprintln!("[hydrogen] selftest preempt: ok (clock kept time while printing: {} ticks counted, {} by cycle counter)", counted, real);
 }
 

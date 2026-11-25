@@ -103,14 +103,30 @@ pub fn current_name() -> Name {
     sched::with_process(|p| p.name).unwrap_or_default()
 }
 
+/// Fuzz build only: programs named "fuzz" may use 3 timer ticks and print nothing.
+#[cfg(feature = "fuzz-user")]
+pub fn over_time_limit() -> bool {
+    is_fuzz() && sched::cpu_ticks(sched::current_id()).is_some_and(|t| t >= 3)
+}
+
+pub fn is_fuzz() -> bool {
+    cfg!(feature = "fuzz-user") && current_name().as_str() == "fuzz"
+}
+
 /// End the current process. Its memory is freed by the next thread that runs.
 pub fn exit_current(code: i32) -> ! {
+    if is_fuzz() {
+        finish(ExitStatus::Exited(code));
+    }
     kprintln!("[hydrogen] process {} (pid {}) exited with code {}", current_name().as_str(), sched::current_id(), code);
     finish(ExitStatus::Exited(code))
 }
 
 /// End the current process because it did something it must not. `details` is only logged.
 pub fn kill_current(why: &'static str, details: fmt::Arguments) -> ! {
+    if is_fuzz() {
+        finish(ExitStatus::Killed(why));
+    }
     kprintln!("[hydrogen] process {} (pid {}) KILLED: {}{}", current_name().as_str(), sched::current_id(), why, details);
     finish(ExitStatus::Killed(why))
 }

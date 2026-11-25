@@ -68,6 +68,10 @@ Threads, context switch, scheduler, ring-3 processes, `syscall`/`sysret`, ELF lo
   `docs/screenshots/phase3-boot.png`
 - [x] **Accept** (QEMU on the Ryzen): two user processes interleave (3.4); a faulting process is killed without
   killing the kernel (3.5). `make test-all`: 25 unit tests + 13 QEMU boots pass.
+- [x] Phase 3 review (2026-11-25) — 5 problems found and fixed: heap addresses never reused (kernel died after 1 GiB of
+  allocations), log flooding stopped the clock, segment registers leaked between programs, `sysenter` entry and
+  local descriptor table/global translations left as firmware set them. New: `make fuzz` (20,000 programs of random
+  machine code; passed with 3 seeds), 58 kinds of crash, 1.1 GiB heap test. `make test-all`: 30 unit tests + 13 QEMU boots.
 - [ ] Same suite on the Dell (Intel) — needed before Phase 3 is marked done
 
 ## Phase 4 — Hardware  (plan proposed: `docs/PHASE4_PLAN.md`, waiting for the owner)

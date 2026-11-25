@@ -66,7 +66,7 @@ fn main() -> i32 {
     let text = TEXT.as_ptr() as u64;
     let me = getpid();
     let stack_end = 0x7fff_ffe1_0000;
-    let checks: [(i64, i64); 24] = [
+    let checks: [(i64, i64); 25] = [
         // log: addresses that are not ours
         (call(sys::LOG, 0, 5), sys::BAD_ADDRESS),
         (call(sys::LOG, 8, 5), sys::BAD_ADDRESS),
@@ -96,6 +96,7 @@ fn main() -> i32 {
         // direction flag (copies run backwards) and alignment check (suspends SMAP)
         (with_flags(0x400), 8),
         (with_flags(0x40000), 8),
+        (with_flags(0x4000), 8), // "nested task": makes `iretq` fail if the kernel keeps it
     ];
     for (i, (got, want)) in checks.iter().enumerate() {
         if got != want {

@@ -150,6 +150,8 @@ extern "C" fn kmain_stage2() -> ! {
         }
         selftest::elf();
         selftest::isolation();
+        #[cfg(feature = "fuzz-user")]
+        selftest::fuzz::run();
     } else {
         kprintln!("[hydrogen] sched: no timer, so no preemption; thread checks FAILED (not run)");
     }

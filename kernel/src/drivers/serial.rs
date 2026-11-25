@@ -1,7 +1,7 @@
 //! 16550 UART on COM1 — the kernel's first and most reliable log output.
 //!
 //! The port is slow (65 characters take about 17 ms at 38400 baud), so text first goes into a ring
-//! and is then sent a few bytes at a time, with the lock released in between. Sending a whole
+//! and is then sent a byte at a time, with the lock released in between. Sending a whole
 //! line under the lock kept interrupts off long enough to lose timer ticks. Each line enters
 //! the ring in one piece, so lines from different threads never mix.
 
@@ -11,8 +11,9 @@ use core::fmt;
 
 const COM1: u16 = 0x3F8;
 const RING: usize = 4096;
-/// Bytes sent per lock: keeps interrupts off for about 1 ms at 38400 baud.
-const CHUNK: usize = 4;
+/// Bytes sent per lock. One byte takes about 0.26 ms at 38400 baud, but up to 14 ms was measured
+/// in QEMU on a busy PC, so no more than one: the timer interrupt gets in after every byte.
+const CHUNK: usize = 1;
 
 pub struct SerialPort {
     base: u16,
@@ -94,10 +95,31 @@ pub fn init() {
     SERIAL.lock().init();
 }
 
+/// Counts the bytes a text takes on the wire.
+struct Size(usize);
+
+impl fmt::Write for Size {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.0 += s.len() + s.bytes().filter(|&b| b == b'\n').count();
+        Ok(())
+    }
+}
+
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use fmt::Write;
-    let _ = SERIAL.lock().write_fmt(args);
+    // Measure first: the text goes into the ring in one piece, and only when it fits, because
+    // making room byte by byte would keep interrupts off for as long as sending takes.
+    let mut size = Size(0);
+    let _ = size.write_fmt(args);
+    loop {
+        let mut port = SERIAL.lock();
+        if port.len + size.0 <= RING || port.len == 0 {
+            let _ = port.write_fmt(args);
+            break;
+        }
+        port.send_chunk();
+    }
     while SERIAL.lock().send_chunk() {} // the lock is free between chunks
 }
 

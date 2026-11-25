@@ -29,7 +29,7 @@ QEMU_BASE  = qemu-system-x86_64 $(ACCEL) -M q35 -m 512M -no-reboot \
              -drive if=pflash,unit=1,format=raw,file=$(BUILD)/ovmf-vars.fd
 
 .PHONY: all kernel apps iso run debug unit test test-threads test-preempt test-user test-elf test-isolation test-panic test-fault-pagefault test-fault-stack \
-        test-fault-int3 test-fault-thread-stack test-fault-smap test-fault-smep test-all limine clean distclean FORCE
+        test-fault-int3 test-fault-thread-stack test-fault-smap test-fault-smep fuzz test-all limine clean distclean FORCE
 
 all: iso
 
@@ -117,7 +117,8 @@ test-preempt: iso
 
 # Phase 3.3: programs in ring 3 with private memory, talking to the kernel through system calls.
 test-user: iso
-	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-user 		"user mode: syscall door open; SMEP on, SMAP on" "] hello from ring 3" "exited with code 0" 		"hello ran in ring 3, exit code 0" "registers intact across system calls" 		"500 ms of nothing but system calls" "each saw only its own data" "50 programs started and finished, no memory leaked" "phase 3 boot complete"
+	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-user 		"user mode: syscall door open; SMEP on, SMAP on" "] hello from ring 3" "exited with code 0" 		"hello ran in ring 3, exit code 0" "registers intact across system calls" 		"500 ms of nothing but system calls" \
+		"segment registers do not leak" "programs flooded the log" "each saw only its own data" "50 programs started and finished, no memory leaked" "phase 3 boot complete"
 
 # Phase 3.4: two separate program files are loaded and take turns; the loader gets memory right.
 test-elf: iso
@@ -131,7 +132,7 @@ test-elf: iso
 test-isolation: iso
 	@bash tools/test-boot.sh $(ISO) $(BUILD)/test-isolation \
 		"KILLED: PAGE FAULT at 0xffffffff80000000" "KILLED: DIVIDE ERROR" "KILLED: INVALID OPCODE" \
-		"KILLED: GENERAL PROTECTION FAULT" "43 kinds of crash, each ended only its own program" \
+		"KILLED: GENERAL PROTECTION FAULT" "58 kinds of crash, each ended only its own program" \
 		"] [hydrogen] forged kernel line??[31mred" "bad system call arguments come back as errors" \
 		"crashed programs leaked no memory" "phase 3 boot complete"
 
@@ -157,6 +158,10 @@ test-fault-smap: $(BUILD)/hydrogen-fault-smap.iso
 
 test-fault-smep: $(BUILD)/hydrogen-fault-smep.iso
 	@bash tools/test-boot.sh $< $(BUILD)/test-fault-smep "EXCEPTION: PAGE FAULT at 0x400000 (PageFaultErrorCode(PROTECTION_VIOLATION | INSTRUCTION_FETCH))"
+
+# Not part of test-all (takes minutes): 20,000 programs made of random machine code.
+fuzz: $(BUILD)/hydrogen-fuzz-user.iso
+	@TIMEOUT=900 bash tools/test-boot.sh $< $(BUILD)/fuzz "fuzz: ok (20000 programs" "phase 3 boot complete"
 
 test-all: unit test test-threads test-preempt test-user test-elf test-isolation test-panic test-fault-pagefault test-fault-stack \
           test-fault-int3 test-fault-thread-stack test-fault-smap test-fault-smep

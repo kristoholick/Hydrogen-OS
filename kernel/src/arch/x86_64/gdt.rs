@@ -78,6 +78,8 @@ pub fn init() {
         FS::set_reg(SegmentSelector::NULL);
         GS::set_reg(SegmentSelector::NULL);
         load_tss(sel.tss);
+        // No local descriptor table: a program must not reach whatever the firmware left there.
+        core::arch::asm!("lldt {0:x}", in(reg) 0u16, options(nostack, preserves_flags));
     }
 }
 
@@ -91,6 +93,18 @@ pub fn set_ring0_stack(top: u64) {
     // SAFETY: one core, interrupts off: the CPU reads this field only on an interrupt from
     // ring 3, which cannot happen while the kernel runs here.
     unsafe { (*TSS.0.get()).privilege_stack_table[0] = VirtAddr::new(top) };
+}
+
+/// Forget what a program put into its data segment registers, so the next one cannot see it.
+/// (In 64-bit mode they have no other use; the kernel does not rely on them either.)
+pub fn clear_data_segments() {
+    // SAFETY: null selectors are valid in 64-bit mode, in ring 0 and ring 3.
+    unsafe {
+        DS::set_reg(SegmentSelector::NULL);
+        ES::set_reg(SegmentSelector::NULL);
+        FS::set_reg(SegmentSelector::NULL);
+        GS::set_reg(SegmentSelector::NULL);
+    }
 }
 
 /// Address range of the emergency stacks (for diagnostics).

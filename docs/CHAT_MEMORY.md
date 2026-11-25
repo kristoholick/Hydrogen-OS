@@ -151,6 +151,17 @@ another without the owner's OK. Full text: `docs/DESIGN_SYSTEM.md` ("LOCKED" sec
     the mask works, and kinds 40/41 of crash-test guard it. QEMU without KVM reports other exceptions than a
     real CPU in places, so some kinds accept any.
   - Programs get one number as start argument (`spawn_elf(.., arg)`) until there are command lines.
+- **Phase 3 review (2026-11-25):** see ROADMAP for the list. Notes:
+  - The heap now takes its addresses from `hydrogen_mm::runs` (1 bit per page). `make fuzz` (not in test-all,
+    about 3 minutes; `FUZZ_SEED=n`) found the heap problem. Kernel stacks: deepest use 1.4 of 16 KiB.
+  - The clock check failed 1 of 10 boots once: on an overloaded host a single byte write took up to 14 ms
+    (measured), longer than a tick. Serial now sends 1 byte per lock and the check allows 3 attempts;
+    a blocking kernel fails all three (checked). Idea for later: keep time from the CPU's cycle counter, so
+    lost ticks do not matter.
+  - `sysenter`, local descriptor table and global-translation changes cannot be proven on the Ryzen (AMD refuses
+    `sysenter` anyway): check on the Dell.
+  - Known limits: allocating or freeing many megabytes holds the heap lock with interrupts off.
+- REA (reverse-engineering tool) is installed on the Ryzen outside the repo; not needed for Hydrogen.
 - 2026-11-25 owner: "keep working each phase one by one with testing, finding issue, noticing, analyzing and fixing"
   (done: the rest of the approved Phase 3 plan; Phase 4 needs its own plan first), and wants Hydrogen to run on as
   many kinds of devices as possible. The three-screen design is settled; don't ask for more choices before Phase 6.

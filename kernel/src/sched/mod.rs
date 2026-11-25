@@ -25,7 +25,7 @@
 
 mod stack;
 
-use crate::arch::x86_64::{space, syscall};
+use crate::arch::x86_64::{gdt, space, syscall};
 use crate::proc::Process;
 use crate::sync::IrqMutex;
 use crate::time;
@@ -240,7 +240,10 @@ fn schedule(leave: State) {
         // Safe a moment before the stack switch: all page tables share the kernel half, and the
         // entry stack is only used when ring 3 is left.
         match &new.process {
-            Some(p) => p.space.activate(),
+            Some(p) => {
+                p.space.activate();
+                gdt::clear_data_segments();
+            }
             None => space::activate_kernel(),
         }
         if let Some(stack) = &new.stack {

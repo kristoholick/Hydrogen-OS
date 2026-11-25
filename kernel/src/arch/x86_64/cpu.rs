@@ -74,7 +74,10 @@ pub fn enable_user_guards() -> UserGuards {
             f.set(Cr4Flags::SUPERVISOR_MODE_ACCESS_PREVENTION, g.smap);
             f.set(Cr4Flags::USER_MODE_INSTRUCTION_PREVENTION, g.umip);
             f.remove(Cr4Flags::OSFXSR | Cr4Flags::OSXMMEXCPT_ENABLE | Cr4Flags::OSXSAVE
-                | Cr4Flags::FSGSBASE | Cr4Flags::PERFORMANCE_MONITOR_COUNTER);
+                | Cr4Flags::FSGSBASE | Cr4Flags::PERFORMANCE_MONITOR_COUNTER
+                // Also drops every cached translation the bootloader marked "global", which
+                // switching page tables does not. We mark none.
+                | Cr4Flags::PAGE_GLOBAL);
         });
         Cr0::update(|f| f.insert(Cr0Flags::EMULATE_COPROCESSOR));
     }

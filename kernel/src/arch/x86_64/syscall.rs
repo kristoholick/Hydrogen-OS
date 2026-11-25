@@ -13,8 +13,10 @@ use super::space::USER_END;
 use core::sync::atomic::{AtomicU64, Ordering};
 use x86_64::VirtAddr;
 use x86_64::instructions::interrupts;
-use x86_64::registers::model_specific::{Efer, EferFlags, LStar, SFMask, Star};
+use x86_64::registers::model_specific::{Efer, EferFlags, LStar, Msr, SFMask, Star};
 use x86_64::registers::rflags::RFlags;
+
+const SYSENTER_CS: u32 = 0x174;
 
 static KERNEL_RSP: AtomicU64 = AtomicU64::new(0);
 static USER_RSP: AtomicU64 = AtomicU64::new(0);
@@ -118,8 +120,14 @@ pub fn init() {
             | RFlags::IOPL_LOW
             | RFlags::IOPL_HIGH,
     );
-    // SAFETY: LSTAR, STAR and SFMASK are set up above, so the instruction is safe to allow.
-    unsafe { Efer::update(|f| f.insert(EferFlags::SYSTEM_CALL_EXTENSIONS)) };
+    // SAFETY: LSTAR, STAR and SFMASK are set up above, so the instruction is safe to allow. A zero
+    // SYSENTER_CS makes the other, older way into the kernel (`sysenter`, works in 64-bit mode on
+    // Intel) fault; firmware could have left an entry point there.
+    unsafe {
+        Efer::update(|f| f.insert(EferFlags::SYSTEM_CALL_EXTENSIONS));
+        Msr::new(SYSENTER_CS).write(0);
+        assert_eq!(Msr::new(SYSENTER_CS).read(), 0, "cannot close the sysenter door");
+    }
 }
 
 /// Where the CPU puts the stack when ring 3 enters the kernel (syscall or interrupt). Called on

@@ -88,6 +88,21 @@ fn main() -> i32 {
                 out("rax") _, out("rcx") _, out("r11") _, out("rdx") _),
             42 => read(0xffff_8000_0010_0000), // the kernel's view of all RAM
             43 => asm!("jmp {}", in(reg) 0x7fff_ffff_ffffu64, options(noreturn)), // last byte of user space
+            44 => asm!("sysenter", options(noreturn)), // the other way into the kernel, never set up
+            45 => asm!("sysexit", options(noreturn)),
+            46 => asm!("int 0x80"),
+            47 => asm!("rdpmc", in("ecx") 0, out("eax") _, out("edx") _),
+            48 => asm!("xgetbv", in("ecx") 0, out("eax") _, out("edx") _),
+            49 => asm!("lldt {0:x}", in(reg) 0x18u16),
+            50 => asm!("clts"),
+            51 => asm!("mov {}, cr2", out(reg) _),
+            52 => asm!("mov cr8, {}", in(reg) 15u64),
+            53 => asm!("lmsw {0:x}", in(reg) 0u16),
+            54 => asm!("pushfq", "or qword ptr [rsp], 0x3000", "popfq", "cli"), // fake I/O privilege
+            55 => asm!("int 0xff"),
+            56 => asm!("mov rsp, {}", "int3", in(reg) KERNEL + 0x1000, options(noreturn)),
+            57 => asm!("mov ax, 0x1b", "mov ss, ax", "mov ax, 0x07", "mov ds, ax", out("rax") _), // a local descriptor
+            58 => asm!("mov ax, 0x43", "mov gs, ax", out("rax") _), // past the end of the descriptor table
             _ => return 99,
         }
     }
